@@ -6,3 +6,4 @@
 .vitehub
 node_modules
 vitehub-workspace.d.ts
+.env*.local

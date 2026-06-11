@@ -1,10 +1,11 @@
 export interface ServerEnv {
-  aiGatewayApiKey: string
+  aiGatewayApiKey?: string
   aiGatewayModel: string
   appUrl?: string
   nuxtMcpUrl: string
   openaiApiKey: string
   openaiTranscriptionModel: string
+  telegramAllowedUserIds: string[]
   telegramBotToken?: string
   telegramWebhookSecretToken?: string
 }
@@ -29,12 +30,13 @@ function readPublicAppUrl(): string | undefined {
 
 export function getServerEnv(): ServerEnv {
   return {
-    aiGatewayApiKey: readRequired("AI_GATEWAY_API_KEY"),
-    aiGatewayModel: readOptional("AI_GATEWAY_MODEL") || "openai/gpt-5-mini",
+    aiGatewayApiKey: readOptional("AI_GATEWAY_API_KEY"),
+    aiGatewayModel: readOptional("AI_GATEWAY_MODEL") || "openai/gpt-5.5",
     appUrl: readPublicAppUrl(),
     nuxtMcpUrl: readOptional("NUXT_MCP_URL") || "https://nuxt.com/mcp",
     openaiApiKey: readRequired("OPENAI_API_KEY"),
     openaiTranscriptionModel: readOptional("OPENAI_TRANSCRIPTION_MODEL") || "gpt-4o-transcribe",
+    telegramAllowedUserIds: parseList(readOptional("TELEGRAM_ALLOWED_USER_IDS")),
     telegramBotToken: readOptional("TELEGRAM_BOT_TOKEN"),
     telegramWebhookSecretToken: readOptional("TELEGRAM_WEBHOOK_SECRET_TOKEN"),
   }
@@ -47,6 +49,6 @@ export function getTelegramEnv(): Required<Pick<ServerEnv, "telegramBotToken" | 
   }
 }
 
-export function getTelegramWebhookSecretToken(): string {
-  return readRequired("TELEGRAM_WEBHOOK_SECRET_TOKEN")
+function parseList(value: string | undefined): string[] {
+  return value?.split(",").map(item => item.trim()).filter(Boolean) || []
 }

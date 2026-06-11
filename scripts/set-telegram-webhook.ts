@@ -33,7 +33,7 @@ loadEnvFile(resolve(".env.local"))
 const token = required("TELEGRAM_BOT_TOKEN")
 const appUrl = required("PUBLIC_APP_URL").replace(/\/+$/, "")
 const secretToken = required("TELEGRAM_WEBHOOK_SECRET_TOKEN")
-const webhookUrl = `${appUrl}/api/telegram`
+const webhookUrl = `${appUrl}/api/_vitehub/agents/nuxt/webhooks/telegram`
 
 const response = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
   body: JSON.stringify({

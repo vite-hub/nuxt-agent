@@ -4,11 +4,14 @@
   "private": true,
   "packageManager": "pnpm@10.33.2",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": "22.x"
   },
   "scripts": {
     "build": "vite build",
     "dev": "vite --host 127.0.0.1 --port 3027",
+    "logs": "node scripts/tail-vercel-logs.mjs",
+    "logs:raw": "vercel logs nuxt-agent-two.vercel.app --json",
+    "postbuild": "node scripts/prepare-vercel-output.mjs",
     "preview": "nitro preview",
     "set-telegram-webhook": "tsx scripts/set-telegram-webhook.ts",
     "typecheck": "nitro prepare && tsc --noEmit"
@@ -18,12 +21,13 @@
     "@ai-sdk/openai": "^3.0.69",
     "@chat-adapter/telegram": "^4.30.0",
     "@vercel/functions": "^3.7.0",
-    "@vite-hub/agent": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/agent@1ca621c",
-    "@vite-hub/source": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/source@1ca621c",
-    "@vite-hub/workflow": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/workflow@1ca621c",
-    "@vite-hub/workspace": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/workspace@1ca621c",
+    "@vite-hub/agent": "https://pkg.pr.new/@vite-hub/agent@9074381",
+    "@vite-hub/source": "https://pkg.pr.new/@vite-hub/source@9074381",
+    "@vite-hub/workflow": "https://pkg.pr.new/@vite-hub/workflow@9074381",
+    "@vite-hub/workspace": "https://pkg.pr.new/@vite-hub/workspace@9074381",
     "ai": "^6.0.199",
     "chat": "^4.30.0",
+    "evlog": "^2.18.1",
     "h3": "2.0.1-rc.22",
     "workflow": "^4.3.1"
   },

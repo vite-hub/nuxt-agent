@@ -1,3 +1,4 @@
+import { jsonSchema } from "ai"
 import { defineCapability } from "@vite-hub/agent/capability-runtime"
 import { getWorkflowRun, runWorkflow } from "@vite-hub/workflow"
 import { ensureWorkflowRuntime } from "../runtime/workflow"
@@ -21,6 +22,21 @@ function validateInput(input: unknown) {
   }
 }
 
+const startDemoWorkflowInputSchema = jsonSchema<StartDemoWorkflowInput>({
+  additionalProperties: false,
+  properties: {
+    note: {
+      description: "Optional note to store with the workflow run.",
+      type: "string",
+    },
+    topic: {
+      description: "Optional topic for the workflow run.",
+      type: "string",
+    },
+  },
+  type: "object",
+})
+
 export function demoWorkflow() {
   return defineCapability({
     id: "demo-workflow",
@@ -32,11 +48,7 @@ export function demoWorkflow() {
       context.tools.add({
         start_demo_workflow: {
           description: "Start the Vercel-backed record-demo-run Workflow Definition for this Nuxt Agent demo.",
-          inputSchema: {
-            "~standard": {
-              validate: validateInput,
-            },
-          },
+          inputSchema: startDemoWorkflowInputSchema,
           name: "start_demo_workflow",
           execute: async (input: unknown) => {
             const parsed = validateInput(input)
