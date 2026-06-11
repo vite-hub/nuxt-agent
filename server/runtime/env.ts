@@ -1,7 +1,6 @@
 export interface ServerEnv {
   aiGatewayApiKey?: string
   aiGatewayModel: string
-  appUrl?: string
   nuxtMcpUrl: string
   openaiApiKey: string
   openaiTranscriptionModel: string
@@ -20,19 +19,10 @@ function readOptional(name: string): string | undefined {
   return process.env[name]?.trim() || undefined
 }
 
-function readPublicAppUrl(): string | undefined {
-  const explicit = readOptional("PUBLIC_APP_URL")
-  if (explicit) return explicit.replace(/\/+$/, "")
-
-  const vercelUrl = readOptional("VERCEL_PROJECT_PRODUCTION_URL") || readOptional("VERCEL_URL")
-  return vercelUrl ? `https://${vercelUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")}` : undefined
-}
-
 export function getServerEnv(): ServerEnv {
   return {
     aiGatewayApiKey: readOptional("AI_GATEWAY_API_KEY"),
     aiGatewayModel: readOptional("AI_GATEWAY_MODEL") || "openai/gpt-5.5",
-    appUrl: readPublicAppUrl(),
     nuxtMcpUrl: readOptional("NUXT_MCP_URL") || "https://nuxt.com/mcp",
     openaiApiKey: readRequired("OPENAI_API_KEY"),
     openaiTranscriptionModel: readOptional("OPENAI_TRANSCRIPTION_MODEL") || "gpt-4o-transcribe",

@@ -17,13 +17,7 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-Create a Telegram bot with BotFather, then set:
-
-```sh
-pnpm set-telegram-webhook
-```
-
-The Telegram webhook is the generated ViteHub Chat Webhook Route:
+Telegram is configured outside the app. The bot webhook should point at the generated ViteHub Chat Webhook Route:
 
 ```text
 POST /api/_vitehub/agents/nuxt/webhooks/telegram

@@ -6,19 +6,9 @@ export const errorEvents = defineErrorCatalog("nuxt.agent", {
     message: "Agent run failed",
     status: 500,
   },
-  API_AGENT_FAILED: {
-    internal: { component: "api" },
-    message: "Agent API request failed",
-    status: 500,
-  },
   TELEGRAM_WEBHOOK_FAILED: {
     internal: { component: "telegram" },
     message: "Telegram webhook failed",
-    status: 500,
-  },
-  WORKFLOW_RUN_FAILED: {
-    internal: { component: "workflow" },
-    message: "Workflow run failed",
     status: 500,
   },
 })

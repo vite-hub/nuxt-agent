@@ -13,7 +13,6 @@
     "logs:raw": "vercel logs nuxt-agent-two.vercel.app --json",
     "postbuild": "node scripts/prepare-vercel-output.mjs",
     "preview": "nitro preview",
-    "set-telegram-webhook": "tsx scripts/set-telegram-webhook.ts",
     "typecheck": "nitro prepare && tsc --noEmit"
   },
   "dependencies": {
@@ -35,7 +34,6 @@
     "@types/node": "^25.9.2",
     "nitro": "3.0.260603-beta",
     "std-env": "^4.1.0",
-    "tsx": "^4.20.6",
     "typescript": "^6.0.3",
     "vite": "^8.0.16"
   }

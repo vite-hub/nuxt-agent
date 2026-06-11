@@ -1,32 +1,75 @@
 import { createOpenAI, type OpenAILanguageModelResponsesOptions } from "@ai-sdk/openai"
 import { createTelegramAdapter } from "@chat-adapter/telegram"
-import { defineAgent, workflow, type AgentUsageRecord } from "@vite-hub/agent"
-import { access, chat, formatUsageTelemetryChatMessage, mcp, transcribe, usageTelemetry, vercelAiGatewayPricing, type AccessChatContext, type UsageTelemetryChatCallbackContext } from "@vite-hub/agent/capabilities"
+import { defineAgent, defineCapability, workflow, type AgentUsageRecord } from "@vite-hub/agent"
+import { access, chat, formatUsageTelemetryChatMessage, getTranscriptionResults, mcp, transcribe, usageTelemetry, vercelAiGatewayPricing, type AccessChatContext, type UsageTelemetryChatCallbackContext } from "@vite-hub/agent/capabilities"
 import { remoteMcpServer } from "@vite-hub/agent/mcp"
 import { source } from "@vite-hub/workspace"
 import { createGateway } from "ai"
-import { demoWorkflow } from "../../capabilities/demo-workflow"
 import { auditEvents } from "../../observability/audit"
 import { finishNuxtRun, instrumentNuxtCallSettings, instrumentNuxtModel, nuxtObservability } from "../../observability/capability"
 import { evlog } from "../../observability/evlog"
 import { getServerEnv, getTelegramEnv } from "../../runtime/env"
 
 const maxTranscriptionAudioBytes = 25 * 1024 * 1024
-const nuxtAgentInstructions = [
-  "# Nuxt Agent",
-  "You are the Nuxt Agent demo for ViteHub.",
-  "Answer Nuxt questions with the same official knowledge boundary as the Nuxt.com agent: docs, modules, blog posts, deployment providers, and changelog.",
-  "Use the Nuxt MCP tools first for documentation, modules, blog posts, deployment providers, and release/changelog questions.",
-  "For pasted errors or troubleshooting, search Nuxt documentation first, then use the most specific MCP tool for the area involved.",
-  "Use the mounted Workspace Source under `nuxt/` as the addressable source index for official Nuxt documentation links.",
-  "When users ask what this demo shows, explain the Agent Definition, Nuxt docs Workspace Source, transcription Capability, usage telemetry, Telegram chat entry, and Vercel Workflow.",
-  "Keep answers compact and cite the source path or MCP tool you used when possible.",
-  "For documentation-backed answers, include a compact `Sources:` line with Markdown links to the original Nuxt docs URLs or Nuxt.com pages.",
-  "Format final answers as Markdown. Use short lists, links, inline code, and fenced code blocks when useful. Do not output HTML.",
-].join("\n\n")
-
+const usageRecordTranscriptionsKey = "__nuxtAgentTranscriptions"
+const maxTelegramTextMessageLength = 3500
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
+}
+
+function attachTranscriptionsToUsageRecord() {
+  return defineCapability({
+    id: "telegram-transcription-reply",
+    output(context) {
+      context.output.render((result) => {
+        if (!isRecord(result)) return result
+
+        const transcriptions = getTranscriptionResults(context)
+          .map(item => item.transcript.trim())
+          .filter(Boolean)
+        if (!transcriptions.length) return result
+
+        return {
+          ...result,
+          [usageRecordTranscriptionsKey]: transcriptions,
+        }
+      })
+    },
+  })
+}
+
+function transcriptionsFromUsageRecord(record: AgentUsageRecord): string[] {
+  if (!isRecord(record.raw)) return []
+  const value = record.raw[usageRecordTranscriptionsKey]
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === "string" && !!item.trim()).map(item => item.trim())
+}
+
+function splitLongText(text: string, maxLength = maxTelegramTextMessageLength): string[] {
+  const chunks: string[] = []
+  let remaining = text.trim()
+  while (remaining.length > maxLength) {
+    const boundary = Math.max(
+      remaining.lastIndexOf("\n\n", maxLength),
+      remaining.lastIndexOf("\n", maxLength),
+      remaining.lastIndexOf(" ", maxLength),
+    )
+    const end = boundary > maxLength * 0.6 ? boundary : maxLength
+    chunks.push(remaining.slice(0, end).trim())
+    remaining = remaining.slice(end).trim()
+  }
+  if (remaining) chunks.push(remaining)
+  return chunks
+}
+
+function formatTranscriptionMessages(transcriptions: string[]): string[] {
+  if (!transcriptions.length) return []
+
+  const transcript = transcriptions.join("\n\n")
+  const chunks = splitLongText(transcript)
+  if (chunks.length === 1) return [`Transcription:\n\n${chunks[0]}`]
+
+  return chunks.map((chunk, index) => `Transcription (${index + 1}/${chunks.length}):\n\n${chunk}`)
 }
 
 function recordFrom(parent: unknown, key: string): Record<string, unknown> | undefined {
@@ -271,10 +314,14 @@ export default defineAgent({
         model: createOpenAI({ apiKey: env.openaiApiKey }).transcription(env.openaiTranscriptionModel),
       }
     }),
-    demoWorkflow(),
+    attachTranscriptionsToUsageRecord(),
     usageTelemetry({
       chat: {
         async onUsage(record, context) {
+          for (const text of formatTranscriptionMessages(transcriptionsFromUsageRecord(record))) {
+            await context.sendMessage({ text })
+          }
+
           const markdown = formatNuxtUsageTelemetryChatMessage(record, context)
           const usage = record.usage
           await context.sendMessage({
@@ -304,10 +351,7 @@ export default defineAgent({
   ],
   workspace: {
     sources: {
-      instructions: source.file({
-        content: nuxtAgentInstructions,
-        workspacePath: "AGENTS.md",
-      }),
+      instructions: source.file("AGENTS.md"),
       nuxt: source.fetch({
         path: "nuxt/llms.txt",
         responseType: "text",
