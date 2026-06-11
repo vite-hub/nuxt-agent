@@ -1,17 +1,18 @@
-import type { AgentCapabilityRuntimeContext, AgentInvoker, AgentRuntimeConfig } from "@vite-hub/agent"
 import { createHash } from "node:crypto"
-import { defineCapability } from "@vite-hub/agent"
-import { createError } from "h3"
+import { rateLimit } from "@vite-hub/agent/capabilities"
 import { auditEvents } from "../observability/audit"
 import { evlog } from "../observability/evlog"
 import { getServerEnv } from "../runtime/env"
+
+import type { AgentCapabilityRuntimeContext, AgentRuntimeConfig } from "@vite-hub/agent"
+import type { RateLimitDecision, RateLimitEvent, RateLimitStore, RateLimitStoreInput, RateLimitStoreResult } from "@vite-hub/agent/capabilities"
 
 interface RateLimitEntry {
   count: number
   dayKey: string
 }
 
-interface RateLimitResult {
+interface RateLimitAuditResult {
   identityHash: string
   limit: number
   remaining: number
@@ -21,46 +22,83 @@ interface RateLimitResult {
 const buckets = new Map<string, RateLimitEntry>()
 let cleanupCursor = 0
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
+function dayKey(now: number): string {
+  return new Date(now).toISOString().slice(0, 10)
 }
 
-function invokerIdentity(invoker: AgentInvoker): string {
-  return `${invoker.kind}:${invoker.id}`
+function dayResetAt(day: string): number {
+  return Date.parse(`${day}T00:00:00.000Z`) + 86_400_000
 }
 
 function hashIdentity(identity: string): string {
   return createHash("sha256").update(identity).digest("hex")
 }
 
-function cleanupOldBuckets(dayKey: string) {
+function cleanupOldBuckets(day: string) {
   cleanupCursor += 1
   if (cleanupCursor % 100 !== 0) return
 
   for (const [key, entry] of buckets) {
-    if (entry.dayKey !== dayKey) buckets.delete(key)
+    if (entry.dayKey !== day) buckets.delete(key)
   }
 }
 
-function consume(identity: string, limit: number): RateLimitResult {
-  const dayKey = today()
-  const identityHash = hashIdentity(identity)
-  const key = `${dayKey}:${identityHash}`
+function bucketState(input: RateLimitStoreInput): { day: string, identityHash: string, key: string, resetAt: number, used: number } {
+  const day = dayKey(input.now)
+  const identityHash = hashIdentity(input.identity)
+  const key = `${day}:${identityHash}`
   const entry = buckets.get(key)
-  const used = (entry?.dayKey === dayKey ? entry.count : 0) + 1
-
-  buckets.set(key, { count: used, dayKey })
-  cleanupOldBuckets(dayKey)
+  const used = entry?.dayKey === day ? entry.count : 0
 
   return {
+    day,
     identityHash,
-    limit,
-    remaining: Math.max(0, limit - used),
+    key,
+    resetAt: dayResetAt(day),
     used,
   }
 }
 
-function logRateLimitConsumed(context: AgentCapabilityRuntimeContext<AgentRuntimeConfig>, result: RateLimitResult) {
+function result(input: RateLimitStoreInput, used: number, allowed: boolean): RateLimitStoreResult {
+  return {
+    allowed,
+    limit: input.limit,
+    remaining: Math.max(0, input.limit - used),
+    resetAt: dayResetAt(dayKey(input.now)),
+    used,
+  }
+}
+
+function createNuxtRateLimitStore(): RateLimitStore {
+  return {
+    check(input) {
+      const state = bucketState(input)
+      return result(input, state.used, state.used < input.limit)
+    },
+    consume(input) {
+      const state = bucketState(input)
+      const used = state.used + 1
+      buckets.set(state.key, { count: used, dayKey: state.day })
+      cleanupOldBuckets(state.day)
+      return {
+        ...result(input, used, used <= input.limit),
+        resetAt: state.resetAt,
+      }
+    },
+  }
+}
+
+function auditResult(decision: RateLimitDecision): RateLimitAuditResult {
+  return {
+    identityHash: hashIdentity(decision.identity),
+    limit: decision.limit,
+    remaining: decision.remaining,
+    used: decision.used,
+  }
+}
+
+function logRateLimitConsumed(context: AgentCapabilityRuntimeContext<AgentRuntimeConfig>, decision: RateLimitDecision) {
+  const result = auditResult(decision)
   evlog.audit(auditEvents.RATE_LIMIT_CONSUMED({
     actor: evlog.actor,
     target: { id: context.run?.runId || result.identityHash },
@@ -75,7 +113,8 @@ function logRateLimitConsumed(context: AgentCapabilityRuntimeContext<AgentRuntim
   })
 }
 
-function logRateLimitRejected(context: AgentCapabilityRuntimeContext<AgentRuntimeConfig>, result: RateLimitResult) {
+function logRateLimitRejected(context: AgentCapabilityRuntimeContext<AgentRuntimeConfig>, decision: RateLimitDecision) {
+  const result = auditResult(decision)
   evlog.audit(auditEvents.RATE_LIMIT_REJECTED({
     actor: evlog.actor,
     target: { id: context.run?.runId || result.identityHash },
@@ -90,26 +129,31 @@ function logRateLimitRejected(context: AgentCapabilityRuntimeContext<AgentRuntim
   })
 }
 
+function rateLimitEnabled(): boolean {
+  return getServerEnv().nuxtAgentDailyMessageLimit > 0
+}
+
 export function nuxtRateLimit() {
-  return defineCapability({
-    id: "nuxt-rate-limit",
-    input(context: AgentCapabilityRuntimeContext<AgentRuntimeConfig>) {
-      const limit = getServerEnv().nuxtAgentDailyMessageLimit
-      if (limit <= 0) return
-
-      const result = consume(invokerIdentity(context.invoker), limit)
-      context.context.set("nuxtRateLimit", result)
-      context.finish.provide(() => result)
-
-      if (result.used > result.limit) {
-        logRateLimitRejected(context, result)
-        throw createError({
-          statusCode: 429,
-          message: `You've reached the daily limit of ${result.limit} messages. Try again tomorrow.`,
-        })
-      }
-
-      logRateLimitConsumed(context, result)
+  const capability = rateLimit({
+    id: "nuxtRateLimit",
+    identity: "invoker",
+    limit: () => getServerEnv().nuxtAgentDailyMessageLimit,
+    message: decision => `You've reached the daily limit of ${decision.limit} messages. Try again tomorrow.`,
+    onAllowed(event: RateLimitEvent) {
+      logRateLimitConsumed(event.context, event.decision)
     },
+    onRejected(event: RateLimitEvent) {
+      logRateLimitRejected(event.context, event.decision)
+    },
+    store: createNuxtRateLimitStore(),
+    window: "1d",
   })
+
+  return {
+    ...capability,
+    async input(context: AgentCapabilityRuntimeContext<AgentRuntimeConfig>) {
+      if (!rateLimitEnabled()) return
+      await capability.input?.(context)
+    },
+  }
 }
