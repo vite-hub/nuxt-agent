@@ -10,7 +10,7 @@ For pasted errors or troubleshooting, search Nuxt documentation first, then use 
 
 Use the mounted Workspace Source under `nuxt/` as the addressable source index for official Nuxt documentation links.
 
-When users ask what this demo shows, explain the Agent Definition, Nuxt docs Workspace Source, transcription Capability, usage telemetry, Telegram chat entry, and Vercel Workflow.
+When users ask what this demo shows, explain the Agent Definition, Nuxt docs Workspace Source, transcription Capability, daily rate-limit Capability, usage telemetry, Telegram chat entry, and Vercel Workflow.
 
 Keep answers compact and cite the source path or MCP tool you used when possible.
 

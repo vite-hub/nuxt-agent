@@ -1,18 +1,17 @@
 import { createOpenAI, type OpenAILanguageModelResponsesOptions } from "@ai-sdk/openai"
 import { createTelegramAdapter } from "@chat-adapter/telegram"
-import { defineAgent, defineCapability, workflow, type AgentUsageRecord } from "@vite-hub/agent"
-import { access, chat, formatUsageTelemetryChatMessage, getTranscriptionResults, mcp, transcribe, usageTelemetry, vercelAiGatewayPricing, type AccessChatContext, type UsageTelemetryChatCallbackContext } from "@vite-hub/agent/capabilities"
+import { defineAgent, defineCapability, workflow } from "@vite-hub/agent"
+import { chat, getTranscriptionResults, mcp, transcribe, usageTelemetry, vercelAiGatewayPricing } from "@vite-hub/agent/capabilities"
 import { remoteMcpServer } from "@vite-hub/agent/mcp"
 import { source } from "@vite-hub/workspace"
 import { createGateway } from "ai"
-import { auditEvents } from "../../observability/audit"
 import { finishNuxtRun, instrumentNuxtCallSettings, instrumentNuxtModel, nuxtObservability } from "../../observability/capability"
-import { evlog } from "../../observability/evlog"
+import { nuxtRateLimit } from "../../rate-limit/capability"
 import { getServerEnv, getTelegramEnv } from "../../runtime/env"
 
 const maxTranscriptionAudioBytes = 25 * 1024 * 1024
 const usageRecordTranscriptionsKey = "__nuxtAgentTranscriptions"
-const maxTelegramTextMessageLength = 3500
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
@@ -36,182 +35,6 @@ function attachTranscriptionsToUsageRecord() {
       })
     },
   })
-}
-
-function transcriptionsFromUsageRecord(record: AgentUsageRecord): string[] {
-  if (!isRecord(record.raw)) return []
-  const value = record.raw[usageRecordTranscriptionsKey]
-  if (!Array.isArray(value)) return []
-  return value.filter((item): item is string => typeof item === "string" && !!item.trim()).map(item => item.trim())
-}
-
-function splitLongText(text: string, maxLength = maxTelegramTextMessageLength): string[] {
-  const chunks: string[] = []
-  let remaining = text.trim()
-  while (remaining.length > maxLength) {
-    const boundary = Math.max(
-      remaining.lastIndexOf("\n\n", maxLength),
-      remaining.lastIndexOf("\n", maxLength),
-      remaining.lastIndexOf(" ", maxLength),
-    )
-    const end = boundary > maxLength * 0.6 ? boundary : maxLength
-    chunks.push(remaining.slice(0, end).trim())
-    remaining = remaining.slice(end).trim()
-  }
-  if (remaining) chunks.push(remaining)
-  return chunks
-}
-
-function formatTranscriptionMessages(transcriptions: string[]): string[] {
-  if (!transcriptions.length) return []
-
-  const transcript = transcriptions.join("\n\n")
-  const chunks = splitLongText(transcript)
-  if (chunks.length === 1) return [`Transcription:\n\n${chunks[0]}`]
-
-  return chunks.map((chunk, index) => `Transcription (${index + 1}/${chunks.length}):\n\n${chunk}`)
-}
-
-function recordFrom(parent: unknown, key: string): Record<string, unknown> | undefined {
-  if (!isRecord(parent)) return undefined
-  const value = parent[key]
-  return isRecord(value) ? value : undefined
-}
-
-function chatIdentityLogFields(context: AccessChatContext) {
-  const message = recordFrom(context.input, "message")
-  const thread = recordFrom(context.input, "thread")
-  return {
-    from_id_hash: evlog.safeId(context.identity?.id),
-    message_id_hash: evlog.safeId(message?.id),
-    provider: context.provider,
-    text_length: typeof message?.text === "string" ? message.text.length : undefined,
-    thread_id_hash: evlog.safeId(thread?.id),
-  }
-}
-
-function authorizeTelegramChat(context: AccessChatContext) {
-  if (context.provider !== "telegram") return true
-
-  evlog.audit(auditEvents.TELEGRAM_WEBHOOK_RECEIVED({
-    actor: evlog.actor,
-    target: { id: evlog.safeId(context.identity?.id) || "telegram" },
-  }), chatIdentityLogFields(context))
-
-  const allowedUserIds = getServerEnv().telegramAllowedUserIds
-  const allowed = !allowedUserIds.length || (context.identity?.id ? allowedUserIds.includes(context.identity.id) : false)
-  if (allowed) return true
-
-  evlog.audit(auditEvents.TELEGRAM_WEBHOOK_IGNORED({
-    actor: evlog.actor,
-    target: { id: evlog.safeId(context.identity?.id) || "telegram" },
-  }), {
-    reason: "disallowed_user",
-    ...chatIdentityLogFields(context),
-  })
-
-  return false
-}
-
-function textFrom(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined
-}
-
-function toolNameFrom(value: Record<string, unknown>): string | undefined {
-  return textFrom(value.toolName) || textFrom(value.name)
-}
-
-function isToolPart(value: Record<string, unknown>): boolean {
-  const type = textFrom(value.type)
-  return type === "dynamic-tool"
-    || !!type?.startsWith("tool-")
-    || "toolCallId" in value
-    || "toolName" in value
-}
-
-function isSourcePart(value: Record<string, unknown>): boolean {
-  const type = textFrom(value.type)
-  return !!type?.includes("source") || "sourceType" in value
-}
-
-function shortSourceLabel(value: Record<string, unknown>): string | undefined {
-  const title = textFrom(value.title)
-  const url = textFrom(value.url)
-  if (!url) return title
-
-  try {
-    const parsed = new URL(url)
-    return title || `${parsed.hostname}${parsed.pathname}`.replace(/\/$/, "")
-  }
-  catch {
-    return title || url
-  }
-}
-
-function collectUsageActivity(value: unknown, tools = new Set<string>(), sources = new Set<string>(), depth = 0) {
-  if (depth > 6 || value === null || value === undefined) return { tools, sources }
-  if (Array.isArray(value)) {
-    for (const item of value) collectUsageActivity(item, tools, sources, depth + 1)
-    return { tools, sources }
-  }
-  if (!isRecord(value)) return { tools, sources }
-
-  if (isToolPart(value)) {
-    const name = toolNameFrom(value)
-    if (name) tools.add(name)
-  }
-  if (isSourcePart(value)) {
-    const label = shortSourceLabel(value)
-    if (label) sources.add(label)
-  }
-
-  collectUsageActivity(value.content, tools, sources, depth + 1)
-  collectUsageActivity(value.parts, tools, sources, depth + 1)
-  collectUsageActivity(value.sources, tools, sources, depth + 1)
-  collectUsageActivity(value.providerMetadata, tools, sources, depth + 1)
-  collectUsageActivity(value.steps, tools, sources, depth + 1)
-
-  return { tools, sources }
-}
-
-function sourceLabelsFromTools(tools: Set<string>): string[] {
-  const labels = new Set<string>()
-  for (const tool of tools) {
-    if (tool.startsWith("mcp_nuxt_")) labels.add("Nuxt MCP")
-    if (tool === "materialize_sources" || tool.startsWith("workspace_") || tool === "shell") labels.add("Workspace Source")
-    if (tool === "web_search" || tool === "openai.web_search") labels.add("Web Search")
-  }
-  return [...labels]
-}
-
-function formatUsageList(values: string[], max = 4): string {
-  if (!values.length) return "`none`"
-  const visible = values.slice(0, max).map(value => `\`${value}\``).join(", ")
-  const remaining = values.length - max
-  return `\`${values.length}\` ${visible}${remaining > 0 ? `, +${remaining} more` : ""}`
-}
-
-function tokensPerSecond(record: AgentUsageRecord, context: UsageTelemetryChatCallbackContext): number | undefined {
-  if (record.latency?.tokensPerSecond !== undefined) return record.latency.tokensPerSecond
-  const durationMs = record.latency?.durationMs ?? context.durationMs
-  const tokens = record.usage?.outputTokens ?? record.usage?.totalTokens
-  if (!durationMs || !tokens) return
-  return tokens / (durationMs / 1000)
-}
-
-function formatNuxtUsageTelemetryChatMessage(record: AgentUsageRecord, context: UsageTelemetryChatCallbackContext) {
-  const lines = formatUsageTelemetryChatMessage(record, context).split("\n")
-  if (!lines.some(line => line.startsWith("- Speed:"))) {
-    const speed = tokensPerSecond(record, context)
-    if (speed !== undefined) lines.push(`- Speed: \`${speed.toFixed(1)} tok/s\``)
-  }
-
-  const activity = collectUsageActivity(record.raw)
-  const tools = [...activity.tools].sort()
-  const sources = [...new Set([...sourceLabelsFromTools(activity.tools), ...activity.sources])].sort()
-  lines.push(`- Tools checked: ${formatUsageList(tools)}`)
-  lines.push(`- Sources checked: ${formatUsageList(sources)}`)
-  return lines.join("\n")
 }
 
 export default defineAgent({
@@ -270,12 +93,8 @@ export default defineAgent({
     },
   },
   capabilities: [
-    access({
-      chat: {
-        resolve: authorizeTelegramChat,
-      },
-    }),
     nuxtObservability(),
+    nuxtRateLimit(),
     mcp({
       instructions: [
         "Nuxt MCP tools provide the official Nuxt.com knowledge boundary.",
@@ -301,6 +120,9 @@ export default defineAgent({
       concurrency: "queue",
       fallbackStreamingPlaceholderText: () => "Thinking",
       history: { maxMessages: 8, source: "thread" },
+      identity({ adapter, author }) {
+        return `${adapter}:${author.userId}`
+      },
       stream: false,
       userName: "nuxt-agent",
       webhooks: {
@@ -316,35 +138,6 @@ export default defineAgent({
     }),
     attachTranscriptionsToUsageRecord(),
     usageTelemetry({
-      chat: {
-        async onUsage(record, context) {
-          for (const text of formatTranscriptionMessages(transcriptionsFromUsageRecord(record))) {
-            await context.sendMessage({ text })
-          }
-
-          const markdown = formatNuxtUsageTelemetryChatMessage(record, context)
-          const usage = record.usage
-          await context.sendMessage({
-            markdown,
-          })
-          evlog.audit(auditEvents.USAGE_TELEMETRY_MESSAGE_SENT({
-            actor: evlog.actor,
-            target: { id: context.run?.runId || "usage" },
-          }), {
-            cost_amount: record.cost?.amount,
-            cost_currency: record.cost?.currency,
-            duration_ms: context.durationMs,
-            input_tokens: usage?.inputTokens,
-            model: record.model?.id,
-            origin: context.run?.origin,
-            output_tokens: usage?.outputTokens,
-            provider: context.provider,
-            run_id: context.run?.runId,
-            thread_id_hash: evlog.safeId(context.run?.threadId),
-            total_tokens: usage?.totalTokens,
-          })
-        },
-      },
       includeRaw: true,
       pricing: vercelAiGatewayPricing(),
     }),
@@ -353,6 +146,10 @@ export default defineAgent({
     sources: {
       instructions: source.file("AGENTS.md"),
       nuxt: source.fetch({
+        instructions: [
+          "Use this source as the addressable official Nuxt documentation index.",
+          "Prefer the Nuxt MCP tools for detailed docs, modules, blog posts, deployment providers, and changelog answers.",
+        ],
         path: "nuxt/llms.txt",
         responseType: "text",
         url: new URL("/llms.txt", process.env.NUXT_DOCS_URL?.trim() || "https://nuxt.com"),

@@ -3,6 +3,8 @@ import { defineAuditCatalog } from "evlog"
 export const auditEvents = defineAuditCatalog("nuxt.agent", {
   AGENT_RUN_COMPLETED: { target: "agent_run" },
   AGENT_RUN_STARTED: { target: "agent_run" },
+  RATE_LIMIT_CONSUMED: { target: "agent_run" },
+  RATE_LIMIT_REJECTED: { target: "agent_run" },
   TELEGRAM_AGENT_COMPLETED: { target: "webhook" },
   TELEGRAM_AGENT_STARTED: { target: "webhook" },
   TELEGRAM_WEBHOOK_IGNORED: { target: "webhook" },

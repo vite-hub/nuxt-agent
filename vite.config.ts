@@ -6,7 +6,7 @@ import { defineConfig } from "vite"
 
 export default defineConfig({
   plugins: [
-    hubAgent({ route: false, webhooks: true }),
+    hubAgent({ route: false }),
     hubWorkspace({
       store: { provider: "memory" },
     }),

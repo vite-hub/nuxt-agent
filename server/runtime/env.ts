@@ -2,6 +2,7 @@ export interface ServerEnv {
   aiGatewayApiKey?: string
   aiGatewayModel: string
   nuxtMcpUrl: string
+  nuxtAgentDailyMessageLimit: number
   openaiApiKey: string
   openaiTranscriptionModel: string
   telegramAllowedUserIds: string[]
@@ -19,11 +20,23 @@ function readOptional(name: string): string | undefined {
   return process.env[name]?.trim() || undefined
 }
 
+function readOptionalNonNegativeInteger(name: string, fallback: number): number {
+  const value = readOptional(name)
+  if (!value) return fallback
+
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`Environment variable ${name} must be a non-negative integer.`)
+  }
+  return parsed
+}
+
 export function getServerEnv(): ServerEnv {
   return {
     aiGatewayApiKey: readOptional("AI_GATEWAY_API_KEY"),
     aiGatewayModel: readOptional("AI_GATEWAY_MODEL") || "openai/gpt-5.5",
     nuxtMcpUrl: readOptional("NUXT_MCP_URL") || "https://nuxt.com/mcp",
+    nuxtAgentDailyMessageLimit: readOptionalNonNegativeInteger("NUXT_AGENT_DAILY_MESSAGE_LIMIT", 20),
     openaiApiKey: readRequired("OPENAI_API_KEY"),
     openaiTranscriptionModel: readOptional("OPENAI_TRANSCRIPTION_MODEL") || "gpt-4o-transcribe",
     telegramAllowedUserIds: parseList(readOptional("TELEGRAM_ALLOWED_USER_IDS")),
