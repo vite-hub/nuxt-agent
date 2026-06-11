@@ -3,12 +3,14 @@ import { createTelegramAdapter } from "@chat-adapter/telegram"
 import { defineAgent, workflow, type AgentUsageRecord } from "@vite-hub/agent"
 import { access, chat, formatUsageTelemetryChatMessage, mcp, transcribe, usageTelemetry, vercelAiGatewayPricing, type AccessChatContext, type UsageTelemetryChatCallbackContext } from "@vite-hub/agent/capabilities"
 import { remoteMcpServer } from "@vite-hub/agent/mcp"
+import { source } from "@vite-hub/workspace"
 import { createGateway } from "ai"
 import { demoWorkflow } from "../../capabilities/demo-workflow"
 import { auditEvents } from "../../observability/audit"
 import { finishNuxtRun, instrumentNuxtCallSettings, instrumentNuxtModel, nuxtObservability } from "../../observability/capability"
 import { evlog } from "../../observability/evlog"
 import { getServerEnv, getTelegramEnv } from "../../runtime/env"
+import nuxtAgentInstructions from "./workspace/AGENTS.md?raw"
 
 const maxTranscriptionAudioBytes = 25 * 1024 * 1024
 
@@ -159,23 +161,14 @@ function formatNuxtUsageTelemetryChatMessage(record: AgentUsageRecord, context: 
 }
 
 export default defineAgent({
+  name: "nuxt",
   title: "Nuxt Agent",
   description: "Answers Nuxt questions through ViteHub Agent Definitions, MCP tools, Workspace Sources, Telegram voice input, telemetry, and Workflow.",
   runtime: workflow("nuxt-agent-demo-0610"),
   hooks: {
     "agent:finish": finishNuxtRun,
   },
-  instructions: [
-    "You are the Nuxt Agent demo for ViteHub.",
-    "Answer Nuxt questions with the same official knowledge boundary as the Nuxt.com agent: docs, modules, blog posts, deployment providers, and changelog.",
-    "Use the Nuxt MCP tools first for documentation, modules, blog posts, deployment providers, and release/changelog questions.",
-    "For pasted errors or troubleshooting, search Nuxt documentation first, then use the most specific MCP tool for the area involved.",
-    "Use the mounted Workspace Source under `nuxt/` as the addressable source index for official Nuxt documentation links.",
-    "When users ask what this demo shows, explain the Agent Definition, Nuxt docs Workspace Source, transcription Capability, usage telemetry, Telegram chat entry, and Vercel Workflow.",
-    "Keep answers compact and cite the source path or MCP tool you used when possible.",
-    "For documentation-backed answers, include a compact `Sources:` line with Markdown links to the original Nuxt docs URLs or Nuxt.com pages.",
-    "Format final answers as Markdown. Use short lists, links, inline code, and fenced code blocks when useful. Do not output HTML.",
-  ],
+  instructions: async ({ fs }) => await fs.readFile("AGENTS.md"),
   model: () => {
     const env = getServerEnv()
     if (env.aiGatewayApiKey) {
@@ -298,5 +291,17 @@ export default defineAgent({
       pricing: vercelAiGatewayPricing(),
     }),
   ],
-  workspace: "nuxt",
+  workspace: {
+    sources: {
+      instructions: source.file({
+        content: nuxtAgentInstructions,
+        workspacePath: "AGENTS.md",
+      }),
+      nuxt: source.fetch({
+        path: "nuxt/llms.txt",
+        responseType: "text",
+        url: new URL("/llms.txt", process.env.NUXT_DOCS_URL?.trim() || "https://nuxt.com"),
+      }),
+    },
+  },
 })
