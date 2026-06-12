@@ -1,6 +1,6 @@
 import { createOpenAI, type OpenAILanguageModelResponsesOptions } from "@ai-sdk/openai"
 import { createTelegramAdapter } from "@chat-adapter/telegram"
-import { defineAgent, defineCapability, workflow } from "@vite-hub/agent"
+import { defineAgent, defineCapability, type AgentChatFinishExtension, type AgentFinishEvent, type AgentRuntimeConfig, type AgentUsageRecord, workflow } from "@vite-hub/agent"
 import { chat, getTranscriptionResults, mcp, transcribe, usageTelemetry, vercelAiGatewayPricing } from "@vite-hub/agent/capabilities"
 import { remoteMcpServer } from "@vite-hub/agent/mcp"
 import { source } from "@vite-hub/workspace"
@@ -11,6 +11,8 @@ import { getServerEnv, getTelegramEnv } from "../../runtime/env"
 import workspaceInstructions from "./workspace/AGENTS.md?raw"
 
 const maxTranscriptionAudioBytes = 25 * 1024 * 1024
+const chatExtensionId = "chat"
+const usageTelemetryExtensionId = "usage-telemetry"
 const usageRecordTranscriptionsKey = "__nuxtAgentTranscriptions"
 const telegramThinkingPlaceholderText = "Thinking..."
 
@@ -54,13 +56,81 @@ function attachTranscriptionsToUsageRecord() {
   })
 }
 
+function formatUsageNumber(value: number | undefined) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? new Intl.NumberFormat("en-US").format(value)
+    : undefined
+}
+
+function formatUsageSeconds(value: number | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "n/a"
+  return `${(value / 1000).toFixed(value < 10_000 ? 2 : 1)}s`
+}
+
+function formatTokenSummary(record: AgentUsageRecord) {
+  const usage = record.usage
+  const input = formatUsageNumber(usage?.inputTokens)
+  const output = formatUsageNumber(usage?.outputTokens)
+  const total = formatUsageNumber(usage?.totalTokens ?? (
+    usage?.inputTokens !== undefined && usage.outputTokens !== undefined
+      ? usage.inputTokens + usage.outputTokens
+      : undefined
+  ))
+  const details = [input ? `${input} in` : undefined, output ? `${output} out` : undefined].filter(Boolean).join(", ")
+
+  return `${total || "n/a"} total${details ? ` (${details})` : ""}`
+}
+
+function formatUsageCost(record: AgentUsageRecord) {
+  const cost = record.cost
+  if (!cost) return "n/a"
+
+  const prefix = cost.estimated ? "~" : ""
+  return `${prefix}${cost.amount} ${cost.currency}`
+}
+
+function formatNuxtUsageMessage(record: AgentUsageRecord, event: AgentFinishEvent<AgentRuntimeConfig>) {
+  const durationMs = record.latency?.durationMs ?? event.invocation.durationMs
+  const lines = [
+    "**Usage**",
+    `- Tokens: \`${formatTokenSummary(record)}\``,
+    `- Time: \`${formatUsageSeconds(durationMs)}\``,
+    `- Price: \`${formatUsageCost(record)}\``,
+  ]
+
+  if (record.latency?.tokensPerSecond !== undefined) {
+    lines.push(`- Speed: \`${record.latency.tokensPerSecond.toFixed(1)} tok/s\``)
+  }
+  if (record.model?.id) {
+    lines.push(`- Model: \`${record.model.id}\``)
+  }
+
+  return lines.join("\n")
+}
+
+async function finishNuxtAgentRun(event: AgentFinishEvent<AgentRuntimeConfig>) {
+  finishNuxtRun(event)
+  if (event.error) return
+
+  const usage = event.extensions.get<AgentUsageRecord>(usageTelemetryExtensionId)
+  const chat = event.extensions.get<AgentChatFinishExtension>(chatExtensionId)
+  if (!usage || !chat) return
+
+  try {
+    await chat.sendMessage({ markdown: formatNuxtUsageMessage(usage, event) })
+  }
+  catch (error) {
+    console.warn("[nuxt-agent] Failed to send usage telemetry chat message.", error)
+  }
+}
+
 export default defineAgent({
   name: "nuxt",
   title: "Nuxt Agent",
   description: "Answers Nuxt questions through ViteHub Agent Definitions, MCP tools, Workspace Sources, Telegram voice input, telemetry, and Workflow.",
   runtime: workflow("nuxt-agent-demo-0610"),
   hooks: {
-    "agent:finish": finishNuxtRun,
+    "agent:finish": finishNuxtAgentRun,
   },
   instructions: async ({ fs }) => await fs.readFile("AGENTS.md"),
   model: () => {
