@@ -260,7 +260,6 @@ export default defineAgent({
         },
       },
       concurrency: "queue",
-      fallbackStreamingPlaceholderText: null,
       history: { maxMessages: 8, source: "thread" },
       identity({ adapter, author }) {
         return `${adapter}:${author.userId}`
