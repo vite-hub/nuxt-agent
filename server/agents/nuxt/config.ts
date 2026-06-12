@@ -14,22 +14,6 @@ const maxTranscriptionAudioBytes = 25 * 1024 * 1024
 const usageRecordTranscriptionsKey = "__nuxtAgentTranscriptions"
 const telegramThinkingPlaceholderText = "Thinking..."
 
-type TelegramAdapter = ReturnType<typeof createTelegramAdapter>
-
-interface TelegramWebhookMessage {
-  chat?: {
-    id?: number | string
-  }
-  from?: {
-    is_bot?: boolean
-  }
-  message_thread_id?: number
-}
-
-interface TelegramWebhookUpdate {
-  message?: TelegramWebhookMessage
-}
-
 const workspaceInstructionsSource = source.custom({
   fingerprint: workspaceInstructions,
   mount: "",
@@ -68,61 +52,6 @@ function attachTranscriptionsToUsageRecord() {
       })
     },
   })
-}
-
-function telegramThreadIdFromMessage(message: TelegramWebhookMessage | undefined) {
-  if (!message || message.from?.is_bot) return
-
-  const chatId = message.chat?.id
-  if (chatId === undefined) return
-
-  return typeof message.message_thread_id === "number"
-    ? `telegram:${chatId}:${message.message_thread_id}`
-    : `telegram:${chatId}`
-}
-
-function withTelegramThinkingPlaceholder(adapter: TelegramAdapter): TelegramAdapter {
-  const placeholders = new Map<string, string[]>()
-  const handleWebhook = adapter.handleWebhook.bind(adapter)
-  const postMessage = adapter.postMessage.bind(adapter)
-  const editMessage = adapter.editMessage.bind(adapter)
-
-  adapter.handleWebhook = async (request, options) => {
-    try {
-      const update = await request.clone().json() as TelegramWebhookUpdate
-      const threadId = telegramThreadIdFromMessage(update.message)
-      if (threadId) {
-        const placeholder = await postMessage(threadId, telegramThinkingPlaceholderText)
-        const queue = placeholders.get(threadId) || []
-        queue.push(placeholder.id)
-        placeholders.set(threadId, queue)
-      }
-    }
-    catch {
-      // Placeholder delivery is best effort; the normal webhook path still owns correctness.
-    }
-
-    return await handleWebhook(request, options)
-  }
-
-  adapter.postMessage = async (threadId, message) => {
-    const queue = placeholders.get(threadId)
-    const placeholderId = queue?.shift()
-    if (queue && queue.length === 0) placeholders.delete(threadId)
-
-    if (placeholderId) {
-      try {
-        return await editMessage(threadId, placeholderId, message)
-      }
-      catch {
-        return await postMessage(threadId, message)
-      }
-    }
-
-    return await postMessage(threadId, message)
-  }
-
-  return adapter
 }
 
 export default defineAgent({
@@ -199,10 +128,10 @@ export default defineAgent({
       adapters: {
         telegram: () => {
           const telegram = getTelegramEnv()
-          return withTelegramThinkingPlaceholder(createTelegramAdapter({
+          return createTelegramAdapter({
             botToken: telegram.telegramBotToken,
             secretToken: telegram.telegramWebhookSecretToken,
-          }))
+          })
         },
       },
       concurrency: "queue",
@@ -211,7 +140,6 @@ export default defineAgent({
       identity({ adapter, author }) {
         return `${adapter}:${author.userId}`
       },
-      stream: false,
       userName: "nuxt-agent",
       webhooks: {
         telegram: {
