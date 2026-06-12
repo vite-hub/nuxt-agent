@@ -9,7 +9,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite --host 127.0.0.1 --port 3027",
-    "logs:raw": "vercel logs nuxt-agent-two.vercel.app --json",
+    "logs:raw": "vercel logs vitehub-nuxt-agent.vercel.app --json",
     "preview": "nitro preview",
     "typecheck": "nitro prepare && tsc --noEmit"
   },
