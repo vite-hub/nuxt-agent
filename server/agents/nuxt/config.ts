@@ -68,19 +68,31 @@ function formatUsageSeconds(value: number | undefined) {
   return `${(value / 1000).toFixed(value < 10_000 ? 2 : 1)}s`
 }
 
-function formatUsageSpeed(record: AgentUsageRecord, event: AgentFinishEvent<AgentRuntimeConfig>) {
-  const recordedSpeed = record.latency?.tokensPerSecond
-  if (typeof recordedSpeed === "number" && Number.isFinite(recordedSpeed)) {
-    return `${recordedSpeed.toFixed(1)} tok/s`
-  }
+function readFiniteNumber(record: Record<string, unknown> | undefined, key: string) {
+  const value = record?.[key]
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
+}
 
-  const durationMs = record.latency?.durationMs ?? event.invocation.durationMs
+function getGenerationDurationMs(record: AgentUsageRecord, ai: Record<string, unknown> | undefined) {
+  return readFiniteNumber(ai, "totalDurationMs")
+    ?? readFiniteNumber(ai, "msToFinish")
+    ?? record.latency?.durationMs
+}
+
+function formatUsageSpeed(record: AgentUsageRecord, ai: Record<string, unknown> | undefined) {
+  const generationSpeed = readFiniteNumber(ai, "tokensPerSecond")
+  if (generationSpeed !== undefined) return `${generationSpeed.toFixed(1)} tok/s`
+
+  const recordedSpeed = record.latency?.tokensPerSecond
+  if (typeof recordedSpeed === "number" && Number.isFinite(recordedSpeed)) return `${recordedSpeed.toFixed(1)} tok/s`
+
+  const durationMs = getGenerationDurationMs(record, ai)
   if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs <= 0) return "n/a"
 
-  const tokens = record.usage?.outputTokens ?? record.usage?.totalTokens
-  if (typeof tokens !== "number" || !Number.isFinite(tokens)) return "n/a"
+  const outputTokens = readFiniteNumber(ai, "outputTokens") ?? record.usage?.outputTokens
+  if (typeof outputTokens !== "number" || !Number.isFinite(outputTokens)) return "n/a"
 
-  return `${(tokens / (durationMs / 1000)).toFixed(1)} tok/s`
+  return `${(outputTokens / (durationMs / 1000)).toFixed(1)} tok/s`
 }
 
 function formatTokenSummary(record: AgentUsageRecord) {
@@ -135,13 +147,13 @@ const nuxtUsagePricing: AgentUsagePricing = async (context) => {
   }
 }
 
-function formatNuxtUsageMessage(record: AgentUsageRecord, event: AgentFinishEvent<AgentRuntimeConfig>) {
-  const durationMs = record.latency?.durationMs ?? event.invocation.durationMs
+function formatNuxtUsageMessage(record: AgentUsageRecord, ai: Record<string, unknown> | undefined) {
+  const generationDurationMs = getGenerationDurationMs(record, ai)
   const lines = [
     "**Usage**",
     `- Tokens: \`${formatTokenSummary(record)}\``,
-    `- Time: \`${formatUsageSeconds(durationMs)}\``,
-    `- Speed: \`${formatUsageSpeed(record, event)}\``,
+    `- Generation: \`${formatUsageSeconds(generationDurationMs)}\``,
+    `- Speed: \`${formatUsageSpeed(record, ai)}\``,
     `- Price: \`${formatUsageCost(record)}\``,
   ]
 
@@ -153,7 +165,7 @@ function formatNuxtUsageMessage(record: AgentUsageRecord, event: AgentFinishEven
 }
 
 async function finishNuxtAgentRun(event: AgentFinishEvent<AgentRuntimeConfig>) {
-  finishNuxtRun(event)
+  const ai = finishNuxtRun(event)
   if (event.error) return
 
   const usage = event.extensions.get<AgentUsageRecord>(usageTelemetryExtensionId)
@@ -161,7 +173,7 @@ async function finishNuxtAgentRun(event: AgentFinishEvent<AgentRuntimeConfig>) {
   if (!usage || !chat) return
 
   try {
-    await chat.sendMessage({ markdown: formatNuxtUsageMessage(usage, event) })
+    await chat.sendMessage({ markdown: formatNuxtUsageMessage(usage, ai) })
   }
   catch (error) {
     console.warn("[nuxt-agent] Failed to send usage telemetry chat message.", error)

@@ -95,6 +95,7 @@ export function logNuxtRunStarted({ input, run }: RunLifecycleArgs) {
 
 export function logNuxtRunCompleted({ result, run }: RunLifecycleArgs) {
   const ai = evlog.getAIMetadata(run?.runId)
+  const aiSnapshot = ai && typeof ai === "object" ? { ...ai as unknown as Record<string, unknown> } : undefined
 
   evlog.audit(auditEvents.AGENT_RUN_COMPLETED({
     actor: evlog.actor,
@@ -110,6 +111,8 @@ export function logNuxtRunCompleted({ result, run }: RunLifecycleArgs) {
     status: 200,
     thread_id_hash: evlog.safeId(run?.threadId),
   })
+
+  return aiSnapshot
 }
 
 export function logNuxtRunFailed(error: unknown, run?: AgentRunMetadata) {
@@ -139,7 +142,7 @@ export function finishNuxtRun(event: AgentFinishEvent<AgentRuntimeConfig>) {
     return
   }
 
-  logNuxtRunCompleted({
+  return logNuxtRunCompleted({
     result: event.result,
     run: event.invocation.run,
   })
