@@ -15,7 +15,6 @@ const chatExtensionId = "chat"
 const usageTelemetryExtensionId = "usage-telemetry"
 const usageRecordTranscriptionsKey = "__nuxtAgentTranscriptions"
 const telegramThinkingPlaceholderText = "Thinking..."
-const usageMessageDelayMs = 1_500
 
 const workspaceInstructionsSource = source.custom({
   fingerprint: workspaceInstructions,
@@ -109,28 +108,20 @@ function formatNuxtUsageMessage(record: AgentUsageRecord, event: AgentFinishEven
   return lines.join("\n")
 }
 
-function wait(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-function scheduleUsageMessage(event: AgentFinishEvent<AgentRuntimeConfig>, usage: AgentUsageRecord, chat: AgentChatFinishExtension) {
-  const delivery = (async () => {
-    await wait(usageMessageDelayMs)
-    await chat.sendMessage({ markdown: formatNuxtUsageMessage(usage, event) })
-  })().catch((error) => {
-    console.warn("[nuxt-agent] Failed to send usage telemetry chat message.", error)
-  })
-
-  event.runtime.waitUntil(delivery)
-}
-
 async function finishNuxtAgentRun(event: AgentFinishEvent<AgentRuntimeConfig>) {
   finishNuxtRun(event)
   if (event.error) return
 
   const usage = event.extensions.get<AgentUsageRecord>(usageTelemetryExtensionId)
   const chat = event.extensions.get<AgentChatFinishExtension>(chatExtensionId)
-  if (usage && chat) scheduleUsageMessage(event, usage, chat)
+  if (!usage || !chat) return
+
+  try {
+    await chat.sendMessage({ markdown: formatNuxtUsageMessage(usage, event) })
+  }
+  catch (error) {
+    console.warn("[nuxt-agent] Failed to send usage telemetry chat message.", error)
+  }
 }
 
 export default defineAgent({
