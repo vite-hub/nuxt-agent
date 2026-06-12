@@ -134,12 +134,11 @@ export default defineAgent({
         },
       },
       concurrency: "queue",
-      fallbackStreamingPlaceholderText: () => "Thinking",
+      fallbackStreamingPlaceholderText: "Thinking...",
       history: { maxMessages: 8, source: "thread" },
       identity({ adapter, author }) {
         return `${adapter}:${author.userId}`
       },
-      stream: false,
       userName: "nuxt-agent",
       webhooks: {
         telegram: {
