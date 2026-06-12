@@ -145,6 +145,7 @@ export default defineAgent({
     }),
   ],
   workspace: {
+    store: { provider: "memory" },
     sources: {
       instructions: source.file("AGENTS.md"),
       nuxt: source.fetch({
