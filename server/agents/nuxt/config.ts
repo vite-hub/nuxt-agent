@@ -126,7 +126,9 @@ export default defineAgent({
       stream: false,
       userName: "nuxt-agent",
       webhooks: {
-        telegram: {},
+        telegram: {
+          secretToken: () => getTelegramEnv().telegramWebhookSecretToken,
+        },
       },
     }),
     transcribe(() => {
