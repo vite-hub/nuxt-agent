@@ -1,7 +1,7 @@
 import { createOpenAI, type OpenAILanguageModelResponsesOptions } from "@ai-sdk/openai"
 import { createTelegramAdapter } from "@chat-adapter/telegram"
 import { defineAgent, defineCapability, type AgentChatFinishExtension, type AgentFinishEvent, type AgentRuntimeConfig, type AgentUsageRecord, workflow } from "@vite-hub/agent"
-import { chat, getTranscriptionResults, mcp, transcribe, usageTelemetry, vercelAiGatewayPricing } from "@vite-hub/agent/capabilities"
+import { chat, getTranscriptionResults, mcp, transcribe, usageTelemetry, vercelAiGatewayPricing, type AgentUsagePricing } from "@vite-hub/agent/capabilities"
 import { remoteMcpServer } from "@vite-hub/agent/mcp"
 import { source } from "@vite-hub/workspace"
 import { createGateway } from "ai"
@@ -15,6 +15,7 @@ const chatExtensionId = "chat"
 const usageTelemetryExtensionId = "usage-telemetry"
 const usageRecordTranscriptionsKey = "__nuxtAgentTranscriptions"
 const telegramThinkingPlaceholderText = "Thinking..."
+const aiGatewayPricing = vercelAiGatewayPricing()
 
 const workspaceInstructionsSource = source.custom({
   fingerprint: workspaceInstructions,
@@ -67,6 +68,21 @@ function formatUsageSeconds(value: number | undefined) {
   return `${(value / 1000).toFixed(value < 10_000 ? 2 : 1)}s`
 }
 
+function formatUsageSpeed(record: AgentUsageRecord, event: AgentFinishEvent<AgentRuntimeConfig>) {
+  const recordedSpeed = record.latency?.tokensPerSecond
+  if (typeof recordedSpeed === "number" && Number.isFinite(recordedSpeed)) {
+    return `${recordedSpeed.toFixed(1)} tok/s`
+  }
+
+  const durationMs = record.latency?.durationMs ?? event.invocation.durationMs
+  if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs <= 0) return "n/a"
+
+  const tokens = record.usage?.outputTokens ?? record.usage?.totalTokens
+  if (typeof tokens !== "number" || !Number.isFinite(tokens)) return "n/a"
+
+  return `${(tokens / (durationMs / 1000)).toFixed(1)} tok/s`
+}
+
 function formatTokenSummary(record: AgentUsageRecord) {
   const usage = record.usage
   const input = formatUsageNumber(usage?.inputTokens)
@@ -86,7 +102,37 @@ function formatUsageCost(record: AgentUsageRecord) {
   if (!cost) return "n/a"
 
   const prefix = cost.estimated ? "~" : ""
-  return `${prefix}${cost.amount} ${cost.currency}`
+  const amount = Number(cost.amount)
+  if (!Number.isFinite(amount)) return `${prefix}${cost.amount} ${cost.currency}`
+
+  const decimals = amount >= 1 ? 2 : amount >= 0.01 ? 4 : amount >= 0.0001 ? 6 : 8
+  const formattedAmount = amount.toFixed(decimals).replace(/\.?0+$/, "")
+  return `${prefix}$${formattedAmount} ${cost.currency}`
+}
+
+function addModelIdCandidate(ids: Set<string>, id: string | undefined) {
+  if (!id) return
+  ids.add(id)
+  if (id.startsWith("openai/")) {
+    ids.add(id.slice("openai/".length))
+  }
+  else {
+    ids.add(`openai/${id}`)
+  }
+}
+
+const nuxtUsagePricing: AgentUsagePricing = async (context) => {
+  const modelIds = new Set<string>()
+  addModelIdCandidate(modelIds, context.model?.id)
+  addModelIdCandidate(modelIds, getServerEnv().aiGatewayModel)
+
+  for (const modelId of modelIds) {
+    const cost = await aiGatewayPricing({
+      ...context,
+      model: { ...context.model, id: modelId },
+    })
+    if (cost) return cost
+  }
 }
 
 function formatNuxtUsageMessage(record: AgentUsageRecord, event: AgentFinishEvent<AgentRuntimeConfig>) {
@@ -95,12 +141,10 @@ function formatNuxtUsageMessage(record: AgentUsageRecord, event: AgentFinishEven
     "**Usage**",
     `- Tokens: \`${formatTokenSummary(record)}\``,
     `- Time: \`${formatUsageSeconds(durationMs)}\``,
+    `- Speed: \`${formatUsageSpeed(record, event)}\``,
     `- Price: \`${formatUsageCost(record)}\``,
   ]
 
-  if (record.latency?.tokensPerSecond !== undefined) {
-    lines.push(`- Speed: \`${record.latency.tokensPerSecond.toFixed(1)} tok/s\``)
-  }
   if (record.model?.id) {
     lines.push(`- Model: \`${record.model.id}\``)
   }
@@ -227,7 +271,7 @@ export default defineAgent({
     attachTranscriptionsToUsageRecord(),
     usageTelemetry({
       includeRaw: true,
-      pricing: vercelAiGatewayPricing(),
+      pricing: nuxtUsagePricing,
     }),
   ],
   workspace: {
