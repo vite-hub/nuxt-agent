@@ -14,7 +14,6 @@ const maxTranscriptionAudioBytes = 25 * 1024 * 1024
 const chatExtensionId = "chat"
 const usageTelemetryExtensionId = "usage-telemetry"
 const usageRecordTranscriptionsKey = "__nuxtAgentTranscriptions"
-const telegramThinkingPlaceholderText = "Thinking..."
 const aiGatewayPricing = vercelAiGatewayPricing()
 
 const workspaceInstructionsSource = source.custom({
@@ -261,7 +260,7 @@ export default defineAgent({
         },
       },
       concurrency: "queue",
-      fallbackStreamingPlaceholderText: telegramThinkingPlaceholderText,
+      fallbackStreamingPlaceholderText: null,
       history: { maxMessages: 8, source: "thread" },
       identity({ adapter, author }) {
         return `${adapter}:${author.userId}`
