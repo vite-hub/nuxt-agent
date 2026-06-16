@@ -8,28 +8,12 @@ import { createGateway } from "ai"
 import { finishNuxtRun, instrumentNuxtCallSettings, instrumentNuxtModel, nuxtObservability } from "../../observability/capability"
 import { nuxtRateLimit } from "../../rate-limit/capability"
 import { getServerEnv, getTelegramEnv } from "../../runtime/env"
-import workspaceInstructions from "./workspace/AGENTS.md?raw"
 
 const maxTranscriptionAudioBytes = 25 * 1024 * 1024
 const chatExtensionId = "chat"
 const usageTelemetryExtensionId = "usage-telemetry"
 const usageRecordTranscriptionsKey = "__nuxtAgentTranscriptions"
 const aiGatewayPricing = vercelAiGatewayPricing()
-
-const workspaceInstructionsSource = source.custom({
-  fingerprint: workspaceInstructions,
-  mount: "",
-  async getKeys() {
-    return ["AGENTS.md"]
-  },
-  async getItem() {
-    return {
-      content: workspaceInstructions,
-      key: "AGENTS.md",
-      mediaType: "text/markdown",
-    }
-  },
-})
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
@@ -287,7 +271,7 @@ export default defineAgent({
   workspace: {
     store: { provider: "memory" },
     sources: {
-      instructions: workspaceInstructionsSource,
+      instructions: source.file("AGENTS.md"),
       nuxt: source.fetch({
         instructions: [
           "Use this source as the addressable official Nuxt documentation index.",
