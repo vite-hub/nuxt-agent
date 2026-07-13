@@ -10,6 +10,7 @@
     "types": ["node"]
   },
   "include": [
+    ".vitehub/**/*.d.ts",
     "server/**/*.ts",
     "vite.config.ts"
   ]

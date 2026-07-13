@@ -4,33 +4,51 @@
   "private": true,
   "packageManager": "pnpm@10.33.2",
   "engines": {
-    "node": "22.x"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "build": "vite build",
     "dev": "vite --host 127.0.0.1 --port 3027",
-    "logs:raw": "vercel logs vitehub-nuxt-agent.vercel.app --json",
+    "nuxt:dev": "vitehub agent dev --url http://127.0.0.1:3027 --agent nuxt --payload server/agents/nuxt/dev.context.json",
     "preview": "nitro preview",
+    "slides:build": "slidev build slides/slides.md --base /presentation/ --out ../public/presentation",
+    "slides:dev": "slidev slides/slides.md --port 3030",
     "typecheck": "nitro prepare && tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/mcp": "^1.0.46",
-    "@ai-sdk/openai": "^3.0.69",
-    "@chat-adapter/telegram": "^4.30.0",
-    "@vite-hub/agent": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/agent@0e25c44",
-    "@vite-hub/source": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/source@0e25c44",
-    "@vite-hub/workflow": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/workflow@0e25c44",
-    "@vite-hub/workspace": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/workspace@0e25c44",
-    "ai": "^6.0.199",
-    "chat": "^4.30.0",
-    "evlog": "^2.18.1",
+    "@ai-sdk/mcp": "2.0.0",
+    "@ai-sdk/openai": "^4.0.1",
+    "@chat-adapter/telegram": "^4.33.0",
+    "@vite-hub/agent": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/agent@a14aeb28",
+    "@vite-hub/env": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/env@a14aeb28",
+    "@vite-hub/workflow": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/workflow@a14aeb28",
+    "@vite-hub/workspace": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/workspace@a14aeb28",
+    "ai": "^7.0.0",
+    "chat": "^4.33.0",
     "h3": "2.0.1-rc.22",
-    "workflow": "^4.3.1"
+    "openworkflow": "^0.9.0"
   },
   "devDependencies": {
+    "@ai-sdk/harness": "1.0.2",
+    "@ai-sdk/harness-codex": "1.0.2",
+    "@nuxt/ui": "4.8.2",
+    "@slidev/cli": "52.16.0",
     "@types/node": "^25.9.2",
+    "@vite-hub/cli": "https://pkg.pr.new/vite-hub/vitehub/@vite-hub/cli@a14aeb28",
     "nitro": "3.0.260603-beta",
+    "shiki": "4.2.0",
+    "tailwindcss": "4.3.1",
     "typescript": "^6.0.3",
     "vite": "^8.0.16"
+  },
+  "imports": {
+    "#vitehub/env/public": {
+      "types": "./.vitehub/env/public.d.ts",
+      "default": "./.vitehub/env/public.mjs"
+    },
+    "#vitehub/env/server": {
+      "types": "./.vitehub/env/server.d.ts",
+      "default": "./.vitehub/env/server.mjs"
+    }
   }
 }

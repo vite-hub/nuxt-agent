@@ -1,9 +1,12 @@
 .env
 .env.local
+.DS_Store
+.agents/skills/
 .nitro
 .output
 .vercel
 .vitehub
 node_modules
+skills-lock.json
 vitehub-workspace.d.ts
 .env*.local

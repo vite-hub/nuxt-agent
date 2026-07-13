@@ -1,0 +1,664 @@
+:root {
+  /* surfaces — committed dark-navy identity, OKLCH, neutrals tinted toward the cool brand hue (255) */
+  --bg: oklch(0.15 0.022 255);
+  --surface-1: oklch(0.205 0.026 255);
+  --surface-2: oklch(0.235 0.03 255);
+  --line: oklch(0.34 0.03 255);
+  --line-soft: oklch(0.27 0.026 255);
+
+  /* text ramp — light-on-dark, contrast-checked against --bg */
+  --ink: oklch(0.97 0.008 255);     /* headings, active */
+  --ink-2: oklch(0.88 0.016 255);   /* strong body / labels */
+  --ink-3: oklch(0.76 0.024 255);   /* secondary text */
+  --ink-4: oklch(0.67 0.03 255);    /* muted, still >=4.5:1 */
+  --ink-faint: oklch(0.52 0.03 255);/* line numbers, non-essential */
+
+  /* accents — green is the primary; cyan/amber/violet categorize the agent decisions */
+  --green: oklch(0.83 0.17 159);
+  --cyan: oklch(0.82 0.11 230);
+  --amber: oklch(0.82 0.13 78);
+  --violet: oklch(0.72 0.15 292);
+  --ts-blue: oklch(0.62 0.13 250);
+
+  /* type scale — fixed px (the slide canvas is a fixed 1280px stage Slidev scales as one unit) */
+  --text-h1: 40px;
+  --text-lg: 18px;
+  --text-base: 16px;
+  --text-sm: 14px;
+  --text-xs: 13px;
+  --weight-body: 500;
+  --weight-strong: 680;
+  --tracking-tight: -0.022em;
+  --tracking-ui: 0.006em;
+  --leading-body: 1.5;
+
+  /* legacy aliases so existing usages adopt the new palette */
+  --vh-bg: var(--bg);
+  --vh-panel: var(--surface-1);
+  --vh-panel-2: var(--surface-2);
+  --vh-line: var(--line);
+  --vh-line-soft: var(--line-soft);
+  --vh-text: var(--ink);
+  --vh-muted: var(--ink-4);
+  --vh-green: var(--green);
+  --vh-cyan: var(--cyan);
+  --vh-amber: var(--amber);
+  --vh-violet: var(--violet);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.slidev-layout {
+  background:
+    radial-gradient(circle at 82% -12%, rgba(34, 226, 138, .16), transparent 36%),
+    linear-gradient(180deg, #061321 0%, var(--vh-bg) 80%);
+  color: var(--vh-text);
+  font-family: "Aptos", "Segoe UI", system-ui, sans-serif;
+  padding: 0;
+}
+
+.slidev-layout :where(h1, h2, h3, p, pre) {
+  margin: 0;
+}
+
+.deck-slide {
+  width: 100%;
+  height: 100%;
+  padding: 46px 52px 36px;
+  position: relative;
+  overflow: hidden;
+}
+
+.deck-kicker {
+  color: var(--vh-green);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.deck-title {
+  color: var(--vh-text);
+  font-size: 52px;
+  font-weight: 760;
+  line-height: .98;
+}
+
+.deck-copy {
+  color: #b8c3d5;
+  font-size: 20px;
+  line-height: 1.45;
+}
+
+.glyph {
+  display: inline-block;
+  flex: none;
+  height: 16px;
+  width: 16px;
+}
+
+/* ----- shared code styling (slide 3) ----- */
+.code-pane {
+  background: #111a2b;
+  color: #cbd5e1;
+  font: 500 18px/1.54 "SFMono-Regular", "Cascadia Code", ui-monospace, monospace;
+  min-width: 0;
+  overflow: hidden;
+  padding: 34px 38px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.code-pane .kw,
+.code-src .kw { color: #ff6d7a; }
+.code-pane .fn,
+.code-src .fn { color: #9be7ff; }
+.code-pane .str,
+.code-src .str { color: #c8f27d; }
+.code-pane .var { color: #d7b0ff; }
+.code-pane .num,
+.code-src .num { color: #ff9365; }
+.code-src .prop { color: #8fb6e8; }
+.code-src .cmt,
+.code-pane .cmt { color: #5d6b81; font-style: italic; }
+
+/* ======================================================
+   Slide layout (slides 1 & 2)
+   ====================================================== */
+.window-slide {
+  display: flex;
+  flex-direction: column;
+  padding: 44px 48px 44px;
+}
+
+.window-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+}
+
+.slide-h1 {
+  color: var(--ink);
+  flex: none;
+  font-size: var(--text-h1);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1;
+  text-wrap: balance;
+}
+
+.accent { color: var(--green); font-weight: 600; }
+
+.win-foot {
+  align-items: center;
+  background: color-mix(in oklch, var(--surface-1) 65%, transparent);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  color: var(--ink-3);
+  display: flex;
+  flex: none;
+  font-size: var(--text-sm);
+  gap: 11px;
+  letter-spacing: var(--tracking-ui);
+  padding: 12px 16px;
+}
+
+.win-foot .glyph { color: var(--ink-4); height: 17px; width: 17px; }
+.win-foot .foot-star { color: var(--amber); }
+
+/* ======================================================
+   Slide 1 — server primitives showcase
+   ====================================================== */
+.ed {
+  background: color-mix(in oklch, var(--surface-1) 70%, transparent);
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ed-tabs-root { flex: none; }
+
+.ed-tabs-list {
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  gap: 2px;
+  padding: 0 8px;
+  position: relative;
+}
+
+.ed-tabs-trigger {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--ink-4);
+  cursor: pointer;
+  display: inline-flex;
+  font: var(--weight-body) var(--text-sm)/1 "Aptos", "Segoe UI", system-ui, sans-serif;
+  gap: 7px;
+  letter-spacing: var(--tracking-ui);
+  padding: 11px 14px;
+}
+
+.ed-tabs-trigger[data-state="active"] { color: var(--ink); font-weight: 600; }
+
+.tab-glyph { color: var(--ink-faint); flex: none; height: 15px; width: 15px; }
+.ed-tabs-trigger[data-state="active"] .tab-glyph { color: var(--green); }
+
+.ed-tabs-indicator {
+  background: var(--green);
+  border-radius: 2px;
+  bottom: 0;
+  height: 2px;
+}
+
+.ed-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 230px 1fr;
+  min-height: 0;
+}
+
+.ed-tree {
+  border-right: 1px solid var(--line-soft);
+  overflow: hidden;
+  padding: 16px 8px 22px;
+}
+
+.tree-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--ink-3);
+  cursor: pointer;
+  display: flex;
+  font: var(--weight-body) var(--text-sm)/1 "Aptos", "Segoe UI", system-ui, sans-serif;
+  gap: 7px;
+  letter-spacing: var(--tracking-ui);
+  padding: 6px 8px;
+  text-align: left;
+  width: 100%;
+}
+
+.tree-item.lvl0 { padding-left: 8px; }
+.tree-item.lvl1 { padding-left: 24px; }
+.tree-item.lvl2 { padding-left: 42px; }
+
+.tree-item.is-dir { color: var(--ink-2); cursor: default; font-weight: 600; }
+
+.tree-item:not(.is-dir):hover { background: color-mix(in oklch, var(--ink-4) 12%, transparent); }
+
+.tree-item.active {
+  background: color-mix(in oklch, var(--green) 14%, transparent);
+  color: var(--ink);
+}
+
+.tree-item .glyph { height: 15px; width: 15px; }
+.tree-caret { color: var(--ink-4); }
+.tree-folder { color: var(--cyan); }
+.tree-json { color: var(--amber); }
+.tree-file { color: var(--ink-4); }
+.tree-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ts-badge {
+  align-items: center;
+  background: var(--ts-blue);
+  border-radius: 4px;
+  color: oklch(0.98 0.01 250);
+  display: inline-flex;
+  flex: none;
+  font: 800 8px/1 "Aptos", system-ui, sans-serif;
+  height: 15px;
+  justify-content: center;
+  letter-spacing: .02em;
+  width: 16px;
+}
+
+.ed-code {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 16px 20px 22px;
+}
+
+.code-title {
+  align-items: center;
+  color: var(--ink-2);
+  display: flex;
+  font-size: var(--text-xs);
+  gap: 8px;
+  letter-spacing: var(--tracking-ui);
+  margin-bottom: 12px;
+}
+
+.shiki-wrap {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shiki-wrap .shiki {
+  background: transparent !important;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.shiki-wrap .shiki,
+.shiki-wrap .shiki code {
+  font: 500 14px/1.7 "SFMono-Regular", "Cascadia Code", ui-monospace, monospace;
+}
+
+.shiki-wrap code {
+  counter-reset: step;
+  counter-increment: step 0;
+  display: grid;
+}
+
+.shiki-wrap .line::before {
+  color: var(--ink-faint);
+  content: counter(step);
+  counter-increment: step;
+  display: inline-block;
+  margin-right: 20px;
+  text-align: right;
+  width: 1.4rem;
+}
+
+/* ======================================================
+   Slide 2 — agent definition diagram
+   ====================================================== */
+.diagram {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
+.diagram-mid {
+  align-items: center;
+  display: flex;
+}
+
+.node {
+  background: color-mix(in oklch, var(--surface-1) 70%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 13px 16px;
+  text-align: center;
+  width: 200px;
+}
+
+.node-head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.node-head .glyph { height: 18px; width: 18px; }
+
+.node-head strong {
+  color: var(--ink);
+  font-size: var(--text-base);
+  font-weight: var(--weight-strong);
+}
+
+.node p {
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-ui);
+  line-height: 1.42;
+  margin-top: 6px;
+}
+
+.node-driver { border-color: color-mix(in oklch, var(--cyan) 50%, transparent); }
+.node-driver .glyph { color: var(--cyan); }
+.node-cap { border-color: color-mix(in oklch, var(--green) 50%, transparent); position: relative; }
+.node-cap .glyph { color: var(--green); }
+
+/* connector tying the Capabilities node to its chip list below */
+.node-cap::before {
+  background: var(--green);
+  border-radius: 50%;
+  content: "";
+  height: 7px;
+  left: 50%;
+  position: absolute;
+  top: 100%;
+  transform: translate(-50%, -50%);
+  width: 7px;
+  z-index: 2;
+}
+
+.node-cap::after {
+  background: linear-gradient(180deg, color-mix(in oklch, var(--green) 60%, transparent), color-mix(in oklch, var(--green) 32%, transparent));
+  content: "";
+  height: 170px;
+  left: 50%;
+  position: absolute;
+  top: 100%;
+  transform: translateX(-50%);
+  width: 2px;
+  z-index: 1;
+}
+.node-ws { border-color: color-mix(in oklch, var(--amber) 50%, transparent); }
+.node-ws .glyph { color: var(--amber); }
+.node-inv { border-color: color-mix(in oklch, var(--violet) 50%, transparent); }
+.node-inv .glyph { color: var(--violet); }
+
+.agent-center {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  margin: 0 14px;
+  padding: 16px 22px;
+}
+
+.agent-center pre {
+  font: 600 15px/1.62 "SFMono-Regular", "Cascadia Code", ui-monospace, monospace;
+  color: var(--ink-2);
+}
+
+.agent-center .fn { color: var(--cyan); }
+.agent-center .k-driver { color: var(--cyan); }
+.agent-center .k-cap { color: var(--green); }
+.agent-center .k-ws { color: var(--amber); }
+.agent-center .k-inv { color: var(--violet); }
+
+.vline {
+  background: color-mix(in oklch, var(--ink-4) 45%, transparent);
+  height: 26px;
+  position: relative;
+  width: 2px;
+}
+
+.hline {
+  background: color-mix(in oklch, var(--ink-4) 45%, transparent);
+  height: 2px;
+  position: relative;
+  width: 30px;
+}
+
+.vline::before,
+.vline::after,
+.hline::before,
+.hline::after {
+  background: color-mix(in oklch, var(--ink-3) 80%, transparent);
+  border-radius: 50%;
+  content: "";
+  height: 6px;
+  position: absolute;
+  width: 6px;
+}
+
+.vline::before { left: -2px; top: -3px; }
+.vline::after { bottom: -3px; left: -2px; }
+.hline::before { left: -3px; top: -2px; }
+.hline::after { right: -3px; top: -2px; }
+
+.cap-chips {
+  border: 1px solid var(--line-soft);
+  border-radius: 13px;
+  display: grid;
+  flex: none;
+  gap: 9px;
+  padding: 13px;
+}
+
+.cap-chips.is-cap {
+  background: color-mix(in oklch, var(--green) 6%, transparent);
+  border-color: color-mix(in oklch, var(--green) 38%, transparent);
+  position: relative;
+  z-index: 2;
+}
+
+.cap-chips-row {
+  display: flex;
+  gap: 9px;
+  justify-content: center;
+}
+
+.chip2 {
+  background: color-mix(in oklch, var(--surface-1) 75%, transparent) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 8px !important;
+  color: var(--ink-2) !important;
+  font-size: var(--text-xs) !important;
+  font-weight: 600 !important;
+  letter-spacing: var(--tracking-ui) !important;
+  padding: 7px 13px !important;
+}
+
+/* ======================================================
+   Slide 3 — demo flow (unchanged layout)
+   ====================================================== */
+.slide-header {
+  align-items: end;
+  display: flex;
+  gap: 42px;
+  justify-content: space-between;
+}
+
+.deck-grid {
+  display: grid;
+  gap: 44px;
+  grid-template-columns: 420px 1fr;
+  height: calc(100% - 96px);
+  margin-top: 34px;
+}
+
+.deck-panel {
+  background: linear-gradient(180deg, rgba(13, 23, 40, .96), rgba(8, 17, 32, .96));
+  border: 1px solid var(--vh-line);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, .28);
+}
+
+.demo-grid {
+  display: grid;
+  gap: 32px;
+  grid-template-columns: 1.04fr .96fr;
+  height: 460px;
+  margin-top: 26px;
+}
+
+.demo-code {
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.demo-side {
+  display: grid;
+  gap: 18px;
+  grid-template-rows: 1fr auto;
+  min-height: 0;
+}
+
+.demo-code .code-pane {
+  font-size: 17px;
+  line-height: 1.42;
+  padding: 28px 32px;
+}
+
+.tabbar {
+  align-items: center;
+  border-bottom: 1px solid var(--vh-line);
+  display: flex;
+  gap: 12px;
+  overflow: hidden;
+  padding: 18px 22px;
+  white-space: nowrap;
+}
+
+.tab {
+  align-items: center;
+  border-radius: 10px;
+  color: #91a0b8;
+  display: inline-flex;
+  font-size: 21px;
+  font-weight: 650;
+  gap: 10px;
+  padding: 12px 16px;
+}
+
+.tab.active {
+  background: #050a16;
+  color: #f6f8fb;
+}
+
+.tab-dot {
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  height: 18px;
+  width: 18px;
+}
+
+.demo-flow {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 0;
+}
+
+.flow-node {
+  border: 1px solid var(--vh-line);
+  background: rgba(13, 23, 40, .9);
+  color: var(--vh-text);
+  min-height: 116px;
+  padding: 16px;
+}
+
+.demo-flow .flow-node {
+  min-height: 0;
+  padding: 13px 15px;
+}
+
+.flow-node b {
+  color: var(--vh-green);
+  display: block;
+  font-size: 13px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.demo-flow .flow-node b { margin-bottom: 6px; }
+
+.flow-node span {
+  color: #c3cede;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.demo-flow .flow-node span {
+  font-size: 15px;
+  line-height: 1.24;
+}
+
+.telemetry-box {
+  border: 1px solid var(--vh-line);
+  background: rgba(13, 23, 40, .92);
+  padding: 20px 24px;
+}
+
+.telemetry-box h3 {
+  color: var(--vh-text);
+  font-size: 22px;
+  font-weight: 760;
+  margin-bottom: 12px;
+}
+
+.metric-list {
+  display: grid;
+  gap: 10px;
+}
+
+.metric {
+  border-bottom: 1px solid var(--vh-line-soft);
+  color: #aab6c8;
+  display: flex;
+  font: 600 15px "SFMono-Regular", ui-monospace, monospace;
+  justify-content: space-between;
+  padding-bottom: 7px;
+}
+
+.metric strong { color: var(--vh-text); }
+
+.footer-line {
+  bottom: 24px;
+  color: #6f7d91;
+  font-size: 13px;
+  left: 52px;
+  position: absolute;
+}

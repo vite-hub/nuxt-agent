@@ -1,0 +1,22 @@
+{
+  "chat": {
+    "meta": {
+      "audience": "technical",
+      "source": "local-cli"
+    },
+    "run": {
+      "channelId": "stream",
+      "origin": "local-cli",
+      "runId": "dev:nuxt:cli",
+      "threadId": "dev:nuxt:cli"
+    },
+    "session": {
+      "id": "nuxt-dev-cli"
+    },
+    "user": {
+      "email": "nuxt-agent-dev@example.com",
+      "id": "dev-nuxt-user",
+      "name": "Nuxt Agent Dev"
+    }
+  }
+}

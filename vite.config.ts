@@ -1,4 +1,5 @@
 import { hubAgent } from "@vite-hub/agent/vite"
+import { env, hubEnv } from "@vite-hub/env/vite"
 import { hubWorkflow } from "@vite-hub/workflow/vite"
 import { hubWorkspace } from "@vite-hub/workspace/vite"
 import { nitro } from "nitro/vite"
@@ -6,22 +7,12 @@ import { defineConfig } from "vite"
 
 export default defineConfig({
   plugins: [
-    hubAgent({
-      providers: { state: { provider: "memory" } },
-      route: false,
-      webhooks: true,
-    }),
-    hubWorkspace({
-      store: { provider: "memory" },
-    }),
-    hubWorkflow(),
+    hubEnv(),
+    hubAgent({ devtools: false, providers: { state: { provider: "memory" } }, routes: { chat: true, webhooks: true } }),
+    hubWorkflow({ provider: "openworkflow" }),
+    hubWorkspace(),
     nitro({
       compatibilityDate: "2026-06-10",
-      noExternals: [
-        "@vite-hub/agent",
-        "@vite-hub/source",
-        "@vite-hub/workflow",
-      ],
       preset: "vercel",
       serverDir: true,
       vercel: {
@@ -32,21 +23,18 @@ export default defineConfig({
       },
     }),
   ],
-  ssr: {
-    noExternal: [
-      "@vite-hub/agent",
-      "@vite-hub/source",
-      "@vite-hub/workflow",
-      "@vite-hub/workspace",
-    ],
+  env: {
+    server: {
+      openaiApiKey: env({ secret: true }),
+      telegram: {
+        botToken: env({ secret: true }),
+        webhookSecretToken: env({ secret: true }),
+      },
+    },
   },
   server: {
     watch: {
       ignored: ["**/.vitehub/**"],
     },
-  },
-  workflow: false,
-  workspace: {
-    store: { provider: "memory" },
   },
 })
