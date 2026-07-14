@@ -2,7 +2,7 @@ import { createOpenAI } from "@ai-sdk/openai"
 import { createTelegramAdapter } from "@chat-adapter/telegram"
 import { defineAgent, workflow } from "@vite-hub/agent"
 import { mcp, observability, rateLimit, transcribe, type AgentObservabilityFinishExtension } from "@vite-hub/agent/capabilities"
-import { stream, telegram } from "@vite-hub/agent/channels"
+import { telegram } from "@vite-hub/agent/channels"
 import { codexDriver } from "@vite-hub/agent/harness/codex"
 import { remoteMcpServer } from "@vite-hub/agent/mcp"
 import { fetch as fetchSource } from "@vite-hub/workspace"
@@ -36,7 +36,6 @@ export default defineAgent({
     userName: "nuxt-agent",
   },
   channels: {
-    stream: stream(),
     telegram: telegram({
       adapter: () => {
         const { telegram } = useServerEnv()

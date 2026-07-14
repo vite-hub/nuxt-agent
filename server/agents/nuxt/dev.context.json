@@ -5,7 +5,6 @@
       "source": "local-cli"
     },
     "run": {
-      "channelId": "stream",
       "origin": "local-cli",
       "runId": "dev:nuxt:cli",
       "threadId": "dev:nuxt:cli"
