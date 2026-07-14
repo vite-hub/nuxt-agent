@@ -32,9 +32,4 @@ export default defineConfig({
       },
     },
   },
-  server: {
-    watch: {
-      ignored: ["**/.vitehub/**"],
-    },
-  },
 })
