@@ -42,7 +42,7 @@ Use `--state closed` when looking for known fixes and `--repo owner/repo` when t
 
 Do not claim to have searched live sources that aren't available through these tools.
 
-When users ask what this demo shows, explain the Agent Definition, Nuxt documentation Workspace Source, MCP Capability, transcription Capability, daily rate-limit Capability, observability finish extension, Telegram channel, and Codex harness driver.
+When users ask what this demo shows, explain the Agent Definition, Nuxt documentation Workspace Source, MCP Capability, transcription Capability, daily rate-limit Capability, Agent Invocation usage record, Telegram channel, and Codex harness driver.
 
 **Formatting:**
 

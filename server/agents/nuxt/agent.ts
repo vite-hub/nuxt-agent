@@ -1,7 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai"
 import { createTelegramAdapter } from "@chat-adapter/telegram"
 import { defineAgent } from "@vite-hub/agent"
-import { mcp, observability, rateLimit, transcribe, type AgentObservabilityFinishExtension } from "@vite-hub/agent/capabilities"
+import { mcp, rateLimit, transcribe } from "@vite-hub/agent/capabilities"
 import { telegram } from "@vite-hub/agent/channels"
 import { codexDriver } from "@vite-hub/agent/harness/codex"
 import { remoteMcpServer } from "@vite-hub/agent/mcp"
@@ -11,10 +11,10 @@ import { formatUsageMessage } from "./usage"
 
 export default defineAgent({
   hooks: {
-    "agent:finish"(event) {
+    async "agent:finish"(event) {
       if (event.error) return
-      const usage = event.extensions.get<AgentObservabilityFinishExtension>("observability")?.usage
-      if (usage) return event.reply(formatUsageMessage(usage))
+      const usage = event.invocation.usage
+      if (usage) return event.reply(await formatUsageMessage(usage))
     },
   },
   workspace: {
@@ -44,7 +44,6 @@ export default defineAgent({
   },
   driver: codexDriver({ model: "gpt-5.6-terra", reasoningEffort: "high" }),
   capabilities: [
-    observability(),
     rateLimit({
       limit: 20,
       message: decision => `You've reached the daily limit of ${decision.limit} messages. Try again tomorrow.`,

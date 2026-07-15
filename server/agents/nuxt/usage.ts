@@ -1,4 +1,6 @@
 import type { AgentUsageRecord } from "@vite-hub/agent"
+import { renderMarkdownTemplate } from "@vite-hub/markdown-template"
+import usageTemplate from "./usage.md?raw"
 
 const numbers = new Intl.NumberFormat("en-US")
 
@@ -6,7 +8,7 @@ function number(value: number | undefined) {
   return value === undefined ? "n/a" : numbers.format(value)
 }
 
-export function formatUsageMessage(record: AgentUsageRecord) {
+export async function formatUsageMessage(record: AgentUsageRecord) {
   const total = record.usage?.totalTokens ?? (
     record.usage?.inputTokens !== undefined && record.usage.outputTokens !== undefined
       ? record.usage.inputTokens + record.usage.outputTokens
@@ -21,14 +23,15 @@ export function formatUsageMessage(record: AgentUsageRecord) {
   const price = record.cost
     ? `${record.cost.estimated ? "~" : ""}$${record.cost.amount} ${record.cost.currency}`
     : "n/a"
-  const lines = [
-    "**Usage**",
-    `- Tokens: \`${number(total)} total (${number(record.usage?.inputTokens)} in, ${number(record.usage?.outputTokens)} out)\``,
-    `- Generation: \`${duration}\``,
-    `- Speed: \`${speed === undefined ? "n/a" : `${speed.toFixed(1)} tok/s`}\``,
-    `- Price: \`${price}\``,
-  ]
-
-  if (record.model?.id) lines.push(`- Model: \`${record.model.id}\``)
-  return lines.join("\n")
+  return renderMarkdownTemplate(usageTemplate, {
+    data: {
+      duration,
+      input: number(record.usage?.inputTokens),
+      model: record.model?.id,
+      output: number(record.usage?.outputTokens),
+      price,
+      speed: speed === undefined ? "n/a" : `${speed.toFixed(1)} tok/s`,
+      total: number(total),
+    },
+  })
 }
