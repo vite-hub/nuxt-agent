@@ -8,7 +8,7 @@ import { defineConfig } from "vite"
 export default defineConfig({
   plugins: [
     hubEnv(),
-    hubAgent({ devtools: false, providers: { state: { provider: "memory" } }, routes: { chat: true, webhooks: true } }),
+    hubAgent(),
     hubWorkflow({ provider: "openworkflow" }),
     hubWorkspace(),
     nitro({

@@ -7,9 +7,9 @@ A Nitro v3 demo app for defining a ViteHub Agent that uses:
 - Telegram chat and voice messages.
 - Daily agent message rate limiting.
 - Usage telemetry.
-- Vercel Workflow via `workflow()`.
+- Durable workflow execution by default.
 
-The agent definition lives in `server/agents/nuxt/config.ts`, with colocated prompt instructions in `server/agents/nuxt/instructions.md`.
+The agent definition lives in `server/agents/nuxt/agent.ts`, with colocated prompt instructions in `server/agents/nuxt/instructions.md`.
 
 ## Setup
 

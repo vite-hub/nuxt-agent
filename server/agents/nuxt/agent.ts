@@ -1,6 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai"
 import { createTelegramAdapter } from "@chat-adapter/telegram"
-import { defineAgent, workflow } from "@vite-hub/agent"
+import { defineAgent } from "@vite-hub/agent"
 import { mcp, observability, rateLimit, transcribe, type AgentObservabilityFinishExtension } from "@vite-hub/agent/capabilities"
 import { telegram } from "@vite-hub/agent/channels"
 import { codexDriver } from "@vite-hub/agent/harness/codex"
@@ -10,7 +10,6 @@ import { useServerEnv } from "#vitehub/env/server"
 import { formatUsageMessage } from "./usage"
 
 export default defineAgent({
-  runtime: workflow(),
   hooks: {
     "agent:finish"(event) {
       if (event.error) return
@@ -29,10 +28,6 @@ export default defineAgent({
   },
   messages: {
     concurrency: "queue",
-    triggerHistory: { maxMessages: 8, source: "thread" },
-    identity({ adapter, author }) {
-      return `${adapter}:${author.userId}`
-    },
     userName: "nuxt-agent",
   },
   channels: {
