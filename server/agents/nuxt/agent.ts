@@ -5,9 +5,15 @@ import { mcp, rateLimit, transcribe } from "@vite-hub/agent/capabilities"
 import { telegram } from "@vite-hub/agent/channels"
 import { codexDriver } from "@vite-hub/agent/harness/codex"
 import { remoteMcpServer } from "@vite-hub/agent/mcp"
+import { defineRateLimit } from "@vite-hub/rate-limit"
 import { fetch as fetchSource } from "@vite-hub/workspace"
 import { useServerEnv } from "#vitehub/env/server"
 import { formatUsageMessage } from "./usage"
+
+const messages = defineRateLimit("nuxt-agent-messages", {
+  limit: 20,
+  window: "1d",
+})
 
 export default defineAgent({
   hooks: {
@@ -45,9 +51,8 @@ export default defineAgent({
   driver: codexDriver({ model: "gpt-5.6-terra", reasoningEffort: "high" }),
   capabilities: [
     rateLimit({
-      limit: 20,
+      limiter: messages,
       message: decision => `You've reached the daily limit of ${decision.limit} messages. Try again tomorrow.`,
-      window: "1d",
     }),
     mcp({
       servers: {
