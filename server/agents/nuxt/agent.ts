@@ -10,13 +10,6 @@ import { fetch as fetchSource } from "@vite-hub/workspace"
 import { useServerEnv } from "#vitehub/env/server"
 import { formatUsageMessage } from "./usage"
 
-const messages = createRateLimiter({
-  driver: memoryRateLimitDriver(),
-  limit: 20,
-  name: "nuxt-agent-messages",
-  window: "1d",
-})
-
 export default defineAgent({
   hooks: {
     async "agent:finish"(event) {
@@ -52,7 +45,12 @@ export default defineAgent({
   driver: { kind: "codex", model: "gpt-5.6-terra" },
   capabilities: [
     rateLimit({
-      limiter: messages,
+      limiter: createRateLimiter({
+        driver: memoryRateLimitDriver(),
+        limit: 20,
+        name: "nuxt-agent-messages",
+        window: "1d",
+      }),
       message: decision => `You've reached the daily limit of ${decision.limit} messages. Try again tomorrow.`,
     }),
     mcp({
