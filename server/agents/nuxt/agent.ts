@@ -3,22 +3,23 @@ import { createTelegramAdapter } from "@chat-adapter/telegram"
 import { defineAgent } from "@vite-hub/agent"
 import { mcp, rateLimit, transcribe } from "@vite-hub/agent/capabilities"
 import { telegram } from "@vite-hub/agent/channels"
-import { codexDriver } from "@vite-hub/agent/harness/codex"
 import { remoteMcpServer } from "@vite-hub/agent/mcp"
-import { defineRateLimit } from "@vite-hub/rate-limit"
+import { createRateLimiter } from "@vite-hub/rate-limit"
+import { memoryRateLimitDriver } from "@vite-hub/rate-limit/drivers/memory"
 import { fetch as fetchSource } from "@vite-hub/workspace"
 import { useServerEnv } from "#vitehub/env/server"
 import { formatUsageMessage } from "./usage"
 
-const messages = defineRateLimit("nuxt-agent-messages", {
+const messages = createRateLimiter({
+  driver: memoryRateLimitDriver(),
   limit: 20,
+  name: "nuxt-agent-messages",
   window: "1d",
 })
 
 export default defineAgent({
   hooks: {
     async "agent:finish"(event) {
-      if (event.error) return
       const usage = event.invocation.usage
       if (usage) return event.reply(await formatUsageMessage(usage))
     },
@@ -48,7 +49,7 @@ export default defineAgent({
       webhooks: { secretToken: () => useServerEnv().telegram.webhookSecretToken.unseal() },
     }),
   },
-  driver: codexDriver({ model: "gpt-5.6-terra", reasoningEffort: "high" }),
+  driver: { kind: "codex", model: "gpt-5.6-terra" },
   capabilities: [
     rateLimit({
       limiter: messages,
