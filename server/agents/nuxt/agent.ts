@@ -1,13 +1,14 @@
 import { createOpenAI } from "@ai-sdk/openai"
-import { createTelegramAdapter } from "@chat-adapter/telegram"
-import { defineAgent } from "@vite-hub/agent"
-import { mcp, rateLimit, transcribe } from "@vite-hub/agent/capabilities"
-import { telegram } from "@vite-hub/agent/channels"
-import { remoteMcpServer } from "@vite-hub/agent/mcp"
-import { createRateLimiter } from "@vite-hub/rate-limit"
-import { memoryRateLimitDriver } from "@vite-hub/rate-limit/drivers/memory"
-import { fetch as fetchSource } from "@vite-hub/workspace"
-import { useServerEnv } from "#vitehub/env/server"
+import { defineAgent } from "vite-hub/agent"
+import { mcp, rateLimit, transcribe } from "vite-hub/agent/capabilities"
+import { telegram } from "vite-hub/agent/channels"
+import { remoteMcpServer } from "vite-hub/agent/mcp"
+import { useServerEnv } from "vite-hub/env"
+import { openai } from "vite-hub/gateways"
+import { languageModel } from "vite-hub/gateways/ai-sdk"
+import { createRateLimiter } from "vite-hub/rate-limit"
+import { memoryRateLimitDriver } from "vite-hub/rate-limit/drivers/memory"
+import { fetch as fetchSource } from "vite-hub/workspace"
 import { formatUsageMessage } from "./usage"
 
 export default defineAgent({
@@ -31,18 +32,11 @@ export default defineAgent({
     userName: "nuxt-agent",
   },
   channels: {
-    telegram: telegram({
-      adapter: () => {
-        const { telegram } = useServerEnv()
-        return createTelegramAdapter({
-          botToken: telegram.botToken.unseal(),
-          secretToken: telegram.webhookSecretToken.unseal(),
-        })
-      },
-      webhooks: { secretToken: () => useServerEnv().telegram.webhookSecretToken.unseal() },
-    }),
+    // Reads TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET_TOKEN.
+    telegram: telegram({ mode: "webhook" }),
   },
-  driver: { kind: "codex", model: "gpt-5.6-terra" },
+  // A model Driver: the Codex binary (about 300 MB) does not fit in a Vercel Function. openai() reads OPENAI_API_KEY.
+  driver: { model: languageModel(openai(), "gpt-5.6-terra", { api: "responses" }) },
   capabilities: [
     rateLimit({
       limiter: createRateLimiter({
@@ -59,7 +53,7 @@ export default defineAgent({
       },
     }),
     transcribe(() => ({
-      model: createOpenAI({ apiKey: useServerEnv().openaiApiKey.unseal() }).transcription("gpt-4o-transcribe"),
+      model: createOpenAI({ apiKey: useServerEnv().openai.apiKey.unseal() }).transcription("gpt-4o-transcribe"),
     })),
   ],
 })
