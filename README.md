@@ -7,7 +7,8 @@ A Nitro v3 demo app for defining a ViteHub Agent that uses:
 - Telegram chat and voice messages.
 - Daily agent message rate limiting.
 - Usage telemetry.
-- Durable workflow execution by default.
+- An OpenAI model as the Agent Driver.
+- The ViteHub Console at console.vitehub.dev.
 
 The agent definition lives in `server/agents/nuxt/agent.ts`, with colocated prompt instructions in `server/agents/nuxt/instructions.md`.
 
@@ -33,8 +34,12 @@ Then run a local Nuxt Agent chat with the dev context:
 pnpm nuxt:dev --prompt "What is useAsyncData?"
 ```
 
-Telegram is configured outside the app. The bot webhook should point at the generated ViteHub Chat Webhook Route:
+Each Telegram reply runs inside the webhook request (`workflow: false`), up to the 60 second Vercel function limit.
 
-```text
-POST /api/_vitehub/agents/nuxt/webhooks/telegram
+ViteHub serves the Telegram webhook at `POST /api/_vitehub/agents/nuxt/webhooks/telegram`. Point the bot at it once per URL. The first command prints the plan, the second applies it:
+
+```sh
+pnpm vitehub channels sync --stage production --url https://vitehub-nuxt-agent.vercel.app --agent nuxt --channel telegram
+pnpm vitehub channels sync --stage production --url https://vitehub-nuxt-agent.vercel.app --agent nuxt --channel telegram \
+  --apply --confirm-origin https://vitehub-nuxt-agent.vercel.app
 ```

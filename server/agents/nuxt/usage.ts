@@ -1,5 +1,5 @@
-import type { AgentUsageRecord } from "@vite-hub/agent"
-import { renderMarkdownTemplate } from "@vite-hub/markdown-template"
+import type { AgentUsageRecord } from "vite-hub/agent"
+import { renderMarkdownTemplate } from "vite-hub/markdown-template"
 import usageTemplate from "./usage.md?raw"
 
 const numbers = new Intl.NumberFormat("en-US")

@@ -1,1 +1,4 @@
-blockExoticSubdeps: false
+overrides:
+  # ai@7.0.130 (pinned by vite-hub) pins @ai-sdk/provider 4.0.24, while @vite-hub/agent and @vite-hub/gateways
+  # take the newest ^4. Two copies make languageModel() from vite-hub/gateways/ai-sdk fail the Driver's model type.
+  "@ai-sdk/provider": 4.0.24
